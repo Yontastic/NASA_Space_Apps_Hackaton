@@ -2,6 +2,12 @@
 
 > **Interactive Geospatial & Scientific Validation Platform for Discovering Moon and Mars Terrestrial Analogs using 13 Official Open Space & Biodiversity Data Sources.**
 
+**Team:** Los Muchachozzz
+- Cristian León Gómez
+- Ignacio Amézquita Rendón
+- Sebastián Montessoro Eulogio
+- Yotan Gabriel de la Rosa Manzur
+
 ## Live Interactive Demo
 
 **[Launch TerraAnalog Live App](https://nasaspaceappshackaton-frontend.vercel.app/)** — No installation required; runs directly in any modern browser.
@@ -30,92 +36,19 @@ Preparing for lunar and Martian surface missions (**NASA Artemis**, **Mars Sampl
 ### Mission Control Navigation Bar
 Switch effortlessly between **Moon** and **Mars** targets, open GIS data sources, track your **Mission Readiness Checklist (`1/5`–`5/5`)**, inspect scientific methodology, launch the guided tour, or open **Dossier 3D**.
 
-![Mission Control Header](images/navbar.png)
+<img width="1351" height="147" alt="8ce343e5-fdbe-4ce1-848f-1330f2882fc9" src="https://github.com/user-attachments/assets/f17ee27e-437b-4c67-beda-db18ea8ba1bc" />
 
 ### 1. Interactive 3D Planetary Globe (100% Uniform Illumination)
 Explore Earth, the Moon, and Mars on a smooth 3D globe with full 360° illumination (no dark night-side occlusion), atmospheric glow, and a collapsible site HUD that keeps the map unobstructed.
 
-![3D Globe View](images/globe-3d.jpg)
+<img width="1024" height="475" alt="60e059d6-5e00-4801-bb57-39ad3d7f6773" src="https://github.com/user-attachments/assets/f0d1d5f3-2473-4532-b25a-0a32bc54e061" />
 
 ### 2. Dual-Body 2D Exploration (Moon & Mars Mosaics)
 Inspect official NASA orbital mosaics (*LRO WAC* & *Viking MDIM 2.1*), select real landing targets (*Shackleton Crater Rim, Mare Tranquillitatis, Oceanus Procellarum, Jezero Crater*), and jump directly to their best terrestrial analogs.
 
-![Moon 2D Surface View](images/moon-2d.jpg)
+<img width="1024" height="482" alt="526e223c-fbb8-4f1a-9dc7-7a98f40f4c7c" src="https://github.com/user-attachments/assets/237af711-135b-47d9-a67a-c2a5723d5e5f" />
 
 ### 3. Dossier 3D: Rover Traverse Simulator with Dynamic Biomes
-Run a physics-based 600 m rover traverse across site-specific biomes (e.g., *Arctic Impact Breccia Highlands*, *Gypsum Wetland Basin*, *Volcanic Basalt*) while monitoring live distance, speed, tilt, wheel slip, battery, surface temperature, and friction $\mu$.
+Run a physics-based 600 m rover traverse across site-specific biomes (e.g., *Arctic Impact Breccia Highlands*, *Gypsum Wetland Basin*, *Volcanic Basalt*) while monitoring live distance, speed, tilt, wheel slip, battery, surface temperature, and friction μ.
 
-![Dossier 3D Rover Simulator](images/dossier-3d.png)
-
-### 4. Compact Environmental & UN SDG Impact Alerts
-Every selected site surfaces a collapsible HUD card showing match percentage, slope/roughness, traction, WDPA status, official UN SDG pills, endangered species at risk, and direct rover-impact warnings.
-
-![Compact UN SDG Alert HUD](images/hud-sdg.png)
-
-### 5. Reactive Quantitative Filters & Live Analog Ranking
-Apply NASA fast-discard thresholds with one click or fine-tune NDVI, liquid water exclusion, slope, roughness, and thermal swing. Every adjustment recalculates match percentages and re-ranks all terrestrial analogs in real time.
-
-| Quantitative Filters & Scoring | Live Terrestrial Analogs Ranking |
-| :---: | :---: |
-| ![Filters and Scoring](images/filters.png) | ![Terrestrial Analogs Ranking](images/ranking.png) |
-
-### 6. Interactive 4-Step Guided Tour & Target Audience
-Built to be intuitive from the first click, the walkthrough introduces TerraAnalog's core workflow and target users: **Space Mission Planners**, **Planetary Scientists**, **Environmental Agencies**, and **Students & Educators**.
-
-| Step 1: Mission & Audience | Step 2: Planetary Targets | Step 3: UN SDG Protection |
-| :---: | :---: | :---: |
-| ![Tour Step 1](images/tour-1.png) | ![Tour Step 2](images/tour-2.png) | ![Tour Step 3](images/tour-3.png) |
-
----
-
-## Official Open Data Sources (13)
-
-TerraAnalog integrates and cites 13 open scientific datasets across four categories (accessible inside the app's **Methodology** and **Data Sources** modals):
-
-### 1. NASA Earth Observation
-- **NASA Earthdata Search** ([search.earthdata.nasa.gov](https://search.earthdata.nasa.gov/)) — SRTM/ASTER elevation, MODIS NDVI, and surface parameters.
-- **NASA Worldview** ([worldview.earthdata.nasa.gov](https://worldview.earthdata.nasa.gov/)) — Multi-temporal Earth satellite imagery validation.
-- **NASA SEDAC** ([earthdata.nasa.gov/centers/sedac-daac](https://www.earthdata.nasa.gov/centers/sedac-daac/map-gallery)) — Human footprint and socioeconomic sustainability layers.
-
-### 2. NASA Moon & Mars Planetary Data
-- **NASA Planetary Data System (PDS)** ([pds.nasa.gov](https://pds.nasa.gov/)) — Lunar and Martian topography and mineralogy benchmarks.
-- **LRO Geosciences Node** ([pds-geosciences.wustl.edu/missions/lro](https://pds-geosciences.wustl.edu/missions/lro/)) — LOLA lunar elevation and slope profiles.
-- **LRO Diviner Lunar Radiometer** ([pds-geosciences.wustl.edu/missions/lro/diviner.htm](https://pds-geosciences.wustl.edu/missions/lro/diviner.htm)) — Thermal swing and polar cold-trap temperature data.
-
-### 3. International Space Agencies
-- **ESA Copernicus Data Space** ([dataspace.copernicus.eu](https://dataspace.copernicus.eu/)) — Sentinel-1 SAR roughness and Sentinel-2 multispectral indices.
-- **CSA RADARSAT Constellation Mission (RCM)** ([donnees-data.asc-csa.gc.ca](https://donnees-data.asc-csa.gc.ca/en/dataset/rcm)) — C-band SAR surface roughness and Arctic analog monitoring.
-- **JAXA G-Portal** ([gportal.jaxa.jp](https://gportal.jaxa.jp/gpr/index/index)) — ALOS World 3D global DEM and moisture datasets.
-
-### 4. Biodiversity, Land Cover & UN SDG Protection
-- **Protected Planet (WDPA)** ([protectedplanet.net](https://www.protectedplanet.net/en/data/wdpca)) — Global protected areas and Ramsar zones for SDG 15/14/6 alerts.
-- **ESA WorldCover** ([esa-worldcover.org](https://esa-worldcover.org/en/data-access)) — 10 m global land-cover classification.
-- **CONABIO Geoportal** ([conabio.gob.mx/informacion/gis](http://www.conabio.gob.mx/informacion/gis/)) — Endemic species and fragile Mexican ecosystems (e.g., Cuatro Ciénegas).
-- **INEGI Land Use & Vegetation** ([inegi.org.mx/programas/usyv](https://www.inegi.org.mx/programas/usyv/)) — High-resolution Mexican soil and vegetation cartography.
-
----
-
-## How to Run Locally (Optional)
-
-You can use the **[Live Vercel Deployment](https://nasaspaceappshackaton-frontend.vercel.app/)** directly without installing anything. To run locally:
-
-```bash
-git clone [https://github.com/Yontastic/NASA_Space_Apps_Hackaton.git](https://github.com/Yontastic/NASA_Space_Apps_Hackaton.git)
-cd NASA_Space_Apps_Hackaton/terraanalog/frontend
-python -m http.server 8000
-```
-
-Then open `http://127.0.0.1:8000` in your browser.
-
----
-
-## Project Structure
-
-- `terraanalog/frontend/` — Production web application (deployed on Vercel).
-- `terraanalog/app/` — Modular Python backend, similarity engine, and data source adapters.
-- `terraanalog/tests/` — Automated validation test suite (`python tests/run_all_tests.py`).
-- `terraanalog/docs/` — Technical architecture, mathematical methodology, and scientific citations.
-
----
-
-*Built for the NASA International Space Apps Challenge.*
+<img width="1040" height="625" alt="4d8f1409-cb5e-492a-9059-6113b90820d9" src="
