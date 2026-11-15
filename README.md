@@ -1,4 +1,4 @@
-﻿# TerraAnalog — Planetary Analog Discovery, Rover Simulation & UN SDG Protection Engine
+# TerraAnalog — Planetary Analog Discovery, Rover Simulation & UN SDG Protection Engine
 
 > **Interactive Geospatial & Scientific Validation Platform for Discovering Moon and Mars Terrestrial Analogs using 13 Official Open Space & Biodiversity Data Sources.**
 
@@ -19,39 +19,52 @@ Preparing for lunar and Martian surface missions (**NASA Artemis**, **Mars Sampl
 
 **TerraAnalog** addresses both challenges in a single interactive web workstation:
 
-1. **Real-Time Multi-Dimensional Planetary Matching**: Scores terrestrial analog sites against real NASA Moon and Mars landing targets (*Shackleton Crater Rim, Mare Tranquillitatis, Oceanus Procellarum, Jezero Crater, Gale Crater, Olympus Mons, Meridiani Planum*) using a transparent Gaussian similarity model.
-2. **Preventive Ecological & UN SDG Safeguards**: Surfaces high-visibility **UN SDG (6, 11, 13, 14, 15)**, **WDPA / Ramsar / UNESCO / Antarctic Treaty**, and **endemic species impact alerts** before approving field rover tests (e.g., protecting living stromatolites and *Cyprinodon atrorus* in Cuatro Ciénegas, Mexico).
-3. **Dossier 3D Rover Traverse Simulator with Dynamic Biomes**: Simulates a 600-meter rover traverse with live physics telemetry (tilt, wheel slip, thermal battery drain, friction μ) rendered across **site-specific biomes** (*Gypsum Wetland, Volcanic Basalt, Hyper-Arid Regolith, Polar Ice, Evaporite Salt Flat, Shocked Breccia*).
+1. **Real-Time Multi-Dimensional Planetary Matching**: Scores terrestrial analog sites against real NASA Moon and Mars landing targets using a transparent Gaussian similarity model.
+2. **Preventive Ecological & UN SDG Safeguards**: Surfaces high-visibility **UN SDG (6, 11, 13, 14, 15)**, **WDPA / Ramsar**, and **endemic species impact alerts** before approving field rover tests.
+3. **Dossier 3D Rover Traverse Simulator with Dynamic Biomes**: Simulates a 600-meter rover traverse with live physics telemetry rendered across **site-specific biomes**.
 
 ---
 
-## Target Audience
+## Platform Interface & Key Features
 
-TerraAnalog includes an interactive **4-step Guided Tour (`? Tour`)** designed for four core user profiles:
+### Mission Control Navigation Bar
+Switch effortlessly between **Moon** and **Mars** targets, open GIS data sources, track your **Mission Readiness Checklist (`1/5`–`5/5`)**, inspect scientific methodology, launch the guided tour, or open **Dossier 3D**.
 
-- **Space Mission Planners**: Screen and certify rover testbeds using NASA safety thresholds (slope, traction, roughness, thermal swing).
-- **Planetary Scientists & Astrobiologists**: Run orbital spectroscopy reverse searches (CRISM / M3 mineral signatures) and compare paleolakes, lava tubes, and impact craters.
-- **Environmental & Conservation Agencies**: Audit protected areas and prevent mechanical rover damage to fragile ecosystems and endemic species.
-- **Students & Educators**: Explore Earth, the Moon, and Mars in synchronized 2D and 3D views with clear visual metrics.
+![Mission Control Header](images/navbar.png)
 
----
+### 1. Interactive 3D Planetary Globe (100% Uniform Illumination)
+Explore Earth, the Moon, and Mars on a smooth 3D globe with full 360° illumination (no dark night-side occlusion), atmospheric glow, and a collapsible site HUD that keeps the map unobstructed.
 
-## Key Features & Functional Workflow
+![3D Globe View](images/globe-3d.jpg)
 
-- **Dual-Body 2D & 3D Planetary Exploration**:
-  - Toggle between **Moon** and **Mars** targets with official NASA orbital mosaics (*LRO Wide Angle Camera* and *Viking MDIM 2.1*).
-  - Click any lunar or Martian target to inspect its **Best Earth Analog**, match score, scientific rationale, and jump straight to Earth or **Dossier 3D**.
-  - Navigate an interactive **3D Globe** with **100% uniform 360° illumination** (no dark night-side occlusion), atmospheric glow, smooth inertia, and a one-click **Center Map** button.
-- **Reactive Filters, 4-Stage Discard Funnel & Reverse Mineral Search**:
-  - Adjust NDVI, surface water exclusion, lithology, max slope, roughness, daily thermal swing, relative humidity, elevation, traction, and custom **scoring weights** with instant recalculation.
-  - Track candidate elimination across a **4-Stage Discard Funnel** (*Biology & Water -> Lithology -> Topography & Mobility -> Extreme Climate*).
-  - Filter by orbital mineral signatures (*Ilmenite, Subsurface Ice, Jarosite/Hematite, Smectite Clays, Perchlorates*).
-- **Compact Environmental & UN SDG HUD**:
-  - Selecting any site opens a collapsible floating card displaying match metrics, WDPA protection status, UN SDG badges, species at risk, and rover-impact warnings without obstructing the map.
-- **Dossier 3D & Mission Readiness Checklist (`0/5` to `5/5`)**:
-  - Run a physics-based 600 m rover traverse (`10x`–`120x` speed) across real biomes, inspect target benchmarks, and export **OGC GeoJSON** (QGIS/ArcGIS compatible) or a full **Mission Dossier JSON**.
-- **Expandable Catalog & Custom Data Ingestion**:
-  - Load pre-validated catalog packs (expanding from 20 to 31 global sites) or upload custom `.csv`, `.geojson`, and `.json` files directly in the browser.
+### 2. Dual-Body 2D Exploration (Moon & Mars Mosaics)
+Inspect official NASA orbital mosaics (*LRO WAC* & *Viking MDIM 2.1*), select real landing targets (*Shackleton Crater Rim, Mare Tranquillitatis, Oceanus Procellarum, Jezero Crater*), and jump directly to their best terrestrial analogs.
+
+![Moon 2D Surface View](images/moon-2d.jpg)
+
+### 3. Dossier 3D: Rover Traverse Simulator with Dynamic Biomes
+Run a physics-based 600 m rover traverse across site-specific biomes (e.g., *Arctic Impact Breccia Highlands*, *Gypsum Wetland Basin*, *Volcanic Basalt*) while monitoring live distance, speed, tilt, wheel slip, battery, surface temperature, and friction $\mu$.
+
+![Dossier 3D Rover Simulator](images/dossier-3d.png)
+
+### 4. Compact Environmental & UN SDG Impact Alerts
+Every selected site surfaces a collapsible HUD card showing match percentage, slope/roughness, traction, WDPA status, official UN SDG pills, endangered species at risk, and direct rover-impact warnings.
+
+![Compact UN SDG Alert HUD](images/hud-sdg.png)
+
+### 5. Reactive Quantitative Filters & Live Analog Ranking
+Apply NASA fast-discard thresholds with one click or fine-tune NDVI, liquid water exclusion, slope, roughness, and thermal swing. Every adjustment recalculates match percentages and re-ranks all terrestrial analogs in real time.
+
+| Quantitative Filters & Scoring | Live Terrestrial Analogs Ranking |
+| :---: | :---: |
+| ![Filters and Scoring](images/filters.png) | ![Terrestrial Analogs Ranking](images/ranking.png) |
+
+### 6. Interactive 4-Step Guided Tour & Target Audience
+Built to be intuitive from the first click, the walkthrough introduces TerraAnalog's core workflow and target users: **Space Mission Planners**, **Planetary Scientists**, **Environmental Agencies**, and **Students & Educators**.
+
+| Step 1: Mission & Audience | Step 2: Planetary Targets | Step 3: UN SDG Protection |
+| :---: | :---: | :---: |
+| ![Tour Step 1](images/tour-1.png) | ![Tour Step 2](images/tour-2.png) | ![Tour Step 3](images/tour-3.png) |
 
 ---
 
