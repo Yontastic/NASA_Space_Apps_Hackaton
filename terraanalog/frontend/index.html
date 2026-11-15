@@ -35,29 +35,63 @@
         <div id="pinsLayer" class="absolute inset-0 pointer-events-none z-20 overflow-hidden"></div>
     </div>
 
-    <!-- Selected-site quick card (works in 2D and 3D) -->
-    <div id="selCard" class="hidden fixed bottom-[84px] left-1/2 -translate-x-1/2 z-30 w-[340px] max-w-[92vw] terra-glass rounded-[22px] p-3.5 shadow-2xl">
-        <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-                <span id="selRank" class="text-[10px] font-bold tracking-wider uppercase text-terraCyan">ANALOG</span>
-                <h4 id="selTitle" class="text-[14px] font-semibold text-white leading-tight truncate">-</h4>
-                <p id="selMeta" class="text-[11px] text-white/55 truncate">-</p>
+    <!-- Selected-site & Compact Environmental / UN SDG Impact Alert HUD (works in 2D and 3D) -->
+    <div id="selCard" class="hidden fixed bottom-[66px] left-1/2 -translate-x-1/2 z-30 w-[335px] max-w-[92vw] terra-glass rounded-[20px] p-2.5 shadow-2xl border border-white/15 transition-all duration-200">
+        <div class="flex items-center justify-between gap-1.5">
+            <div class="min-w-0 flex-1 cursor-pointer" onclick="if(appState.cardMinimized) toggleMinimizeSelCard()">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span id="selRank" class="text-[9px] font-bold tracking-wider uppercase text-terraCyan">ANALOG</span>
+                    <span id="selBiomeBadge" class="text-[9px] font-medium px-1.5 py-0.2 rounded-full bg-white/10 text-white/75 border border-white/10 truncate max-w-[165px]">-</span>
+                </div>
+                <div class="flex items-baseline gap-1.5 min-w-0">
+                    <h4 id="selTitle" class="text-[13px] font-bold text-white leading-tight truncate">-</h4>
+                    <span id="selMeta" class="text-[10px] text-white/50 truncate flex-shrink-0">-</span>
+                </div>
             </div>
-            <button onclick="closeSelCard()" aria-label="Close card" class="touch-target w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 flex-shrink-0">&times;</button>
+            <div class="flex items-center gap-1 flex-shrink-0">
+                <button id="selMinBtn" onclick="toggleMinimizeSelCard()" aria-label="Minimize or expand card" title="Minimize or expand HUD card" class="touch-target min-h-[24px] w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white/80 text-xs font-bold leading-none">&minus;</button>
+                <button onclick="closeSelCard()" aria-label="Close card" title="Dismiss site HUD" class="touch-target min-h-[24px] w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white/80 text-xs leading-none">&times;</button>
+            </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 my-2.5 text-xs">
-            <div class="bg-white/5 rounded-xl p-2 border border-white/10"><span class="text-white/50 block text-[10px]">Similarity</span><span id="selScore" class="text-sm font-bold chip">-</span></div>
-            <div class="bg-white/5 rounded-xl p-2 border border-white/10"><span class="text-white/50 block text-[10px]">Slope / Rough.</span><span id="selSlope" class="text-sm font-bold chip">-</span></div>
-            <div class="bg-white/5 rounded-xl p-2 border border-white/10"><span class="text-white/50 block text-[10px]">Traction</span><span id="selTrac" class="text-sm font-bold chip">-</span></div>
+
+        <div id="selCardBody" class="mt-2 space-y-2">
+            <!-- Slim single-row metrics strip -->
+            <div class="flex items-center justify-between gap-1.5 bg-white/[0.04] rounded-xl px-2.5 py-1 border border-white/10 text-[10px]">
+                <div class="flex items-center gap-1"><span class="text-white/50">Match</span><span id="selScore" class="font-bold chip text-[11px]">-</span></div>
+                <div class="w-px h-3 bg-white/10"></div>
+                <div class="flex items-center gap-1"><span class="text-white/50">Slope/Rgh</span><span id="selSlope" class="font-bold chip text-[11px] text-white">-</span></div>
+                <div class="w-px h-3 bg-white/10"></div>
+                <div class="flex items-center gap-1"><span class="text-white/50">Traction</span><span id="selTrac" class="font-bold chip text-[11px] text-white">-</span></div>
+            </div>
+            <div id="selStatus" class="hidden"></div>
+
+            <!-- Compact Environmental & UN SDG Impact Alert Box -->
+            <div id="sdgAlertCard" class="rounded-xl p-2 border space-y-1 transition max-h-[108px] overflow-y-auto terra-scroll">
+                <div class="flex items-center justify-between gap-1.5">
+                    <span class="text-[9.5px] font-extrabold uppercase tracking-wider flex items-center gap-1 truncate" id="sdgAlertHeader">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                        <span>UN SDG &amp; Ecosystem Alert</span>
+                    </span>
+                    <span id="sdgAlertWdpa" class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-black/40 border border-white/15 text-white/85 truncate max-w-[135px]">-</span>
+                </div>
+                <div id="sdgAlertBadges" class="flex items-center gap-1 flex-wrap"></div>
+                <div class="text-[10px] leading-snug space-y-0.5">
+                    <div class="truncate" title="Affected ecosystem and vulnerable species"><span class="text-white/55">At Risk:</span> <strong id="sdgAlertSpecies" class="text-white font-semibold">-</strong></div>
+                    <div class="text-white/80 bg-black/30 rounded-lg px-2 py-1 border border-white/10 leading-tight"><span class="font-semibold text-white/95">Impact:</span> <span id="sdgAlertImpact">-</span></div>
+                </div>
+            </div>
+
+            <button onclick="openSimulationModal()" title="Open Dossier 3D to simulate the rover across this site's real biome and slopes" class="w-full touch-target min-h-[30px] py-1 rounded-xl bg-terraBlue hover:bg-terraBlueHover active:scale-95 text-white text-[11px] font-semibold gap-1.5 transition shadow-md shadow-terraBlue/25">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+                <span>Simulate Rover in Dossier 3D</span>
+            </button>
         </div>
-        <div id="selStatus" class="mb-2.5 text-[11px] font-medium px-2.5 py-1 rounded-lg border"></div>
-        <button onclick="openSimulationModal()" class="w-full touch-target rounded-xl bg-terraBlue hover:bg-terraBlueHover active:scale-95 text-white text-xs font-semibold transition shadow-md shadow-terraBlue/25">Open Dossier 3D</button>
     </div>
 
     <!-- ===== 2. HEADER ===== -->
     <header class="fixed top-3 left-3 right-3 z-40 terra-glass rounded-[22px] px-3.5 py-2 flex items-center gap-3 shadow-lg">
         <div class="flex items-center gap-3 min-w-0 flex-1">
-            <div class="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#0A84FF] via-[#0055D4] to-[#011430] p-0.5 flex-shrink-0 border border-white/20">
+            <div class="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#0A84FF] via-[#0055D4] to-[#011430] p-0.5 flex-shrink-0 border border-white/20" title="TerraAnalog - Planetary Analog Discovery & Environmental Protection Engine">
                 <div class="w-full h-full rounded-[10px] flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="8" ry="3.2" transform="rotate(-24 12 12)" stroke="#5AA9FF" stroke-width="1.5"/></svg>
                 </div>
@@ -71,36 +105,40 @@
             </div>
             <div class="hidden md:block h-6 w-px bg-white/10 mx-1 flex-shrink-0"></div>
             <div class="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center flex-shrink-0" role="tablist" aria-label="Celestial body">
-                <button id="btnBodyMoon" onclick="setCelestialBody('moon')" class="touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold seg-on transition">Moon</button>
-                <button id="btnBodyMars" onclick="setCelestialBody('mars')" class="touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold seg-off transition">Mars</button>
+                <button id="btnBodyMoon" onclick="setCelestialBody('moon')" title="Explore lunar craters & mare plains (NASA LRO WAC imagery)" class="touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold seg-on transition">Moon</button>
+                <button id="btnBodyMars" onclick="setCelestialBody('mars')" title="Explore Martian paleolakes & volcanoes (NASA Viking / MRO imagery)" class="touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold seg-off transition">Mars</button>
             </div>
-            <div class="hidden lg:flex items-center bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-xl pl-3 pr-1 min-h-[38px] transition min-w-0">
+            <div class="hidden lg:flex items-center bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-xl pl-3 pr-1 min-h-[38px] transition min-w-0" title="Pick a Moon or Mars landing target to rank matching Earth analog sites">
                 <span class="text-[11px] font-medium text-white/50 mr-2 flex-shrink-0">Target:</span>
                 <select id="targetSelect" onchange="onTargetSelect(this.value)" aria-label="Select planetary target" class="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-1 min-w-0 max-w-[260px] truncate"></select>
-                <button onclick="onTargetSelect(document.getElementById('targetSelect').value)" title="Center map on selected target" aria-label="Center map on selected target" class="touch-target w-7 h-7 rounded-lg hover:bg-white/10 text-terraCyan flex items-center justify-center flex-shrink-0 transition ml-1">
+                <button onclick="onTargetSelect(document.getElementById('targetSelect').value)" title="Fly to and center on the selected Moon/Mars target" aria-label="Center map on selected target" class="touch-target w-7 h-7 rounded-lg hover:bg-white/10 text-terraCyan flex items-center justify-center flex-shrink-0 transition ml-1">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path stroke-linecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
                 </button>
             </div>
         </div>
 
         <div class="flex items-center gap-1.5 flex-shrink-0">
-            <span class="hidden lg:inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-white/70" title="Open GIS tiles: Esri, OpenStreetMap, NASA Trek (no API keys)">
+            <span class="hidden xl:inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-white/70" title="Streaming open GIS tiles: Esri World Imagery, OpenTopoMap & NASA Trek (no API keys required)">
                 <span class="w-1.5 h-1.5 rounded-full bg-terraGreen"></span>Open GIS (ESRI / OSM)
             </span>
-            <button onclick="openDataModal()" class="touch-target px-3 rounded-xl border border-white/15 hover:bg-white/10 text-white text-xs font-semibold gap-1.5 transition" title="Curated datasets, catalog packs and file import">
+            <button onclick="openDataModal()" class="touch-target px-3 rounded-xl border border-white/15 hover:bg-white/10 text-white text-xs font-semibold gap-1.5 transition" title="View NASA/ESA/WDPA datasets, load catalog packs, or upload custom CSV/GeoJSON sites">
                 <svg class="w-4 h-4 text-terraCyan" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
                 <span class="hidden md:inline">Data Sources</span>
             </button>
-            <button onclick="openChecklistModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white text-xs font-medium gap-1.5 transition" title="Mission readiness checklist">
+            <button onclick="openChecklistModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white text-xs font-medium gap-1.5 transition" title="Interactive 5-step mission readiness checklist to validate your analog site">
                 <svg class="w-4 h-4 text-terraCyan" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span class="hidden md:inline">Mission</span>
                 <span id="missionBadge" class="chip text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/80">0/5</span>
             </button>
-            <button onclick="openGuideModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white text-xs font-medium gap-1.5 transition" title="Scientific methodology">
+            <button onclick="openGuideModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white text-xs font-medium gap-1.5 transition" title="Scientific methodology: Gaussian similarity scoring, discard funnel & rover physics">
                 <svg class="w-4 h-4 text-white/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.04A9 9 0 006 3.75a9 9 0 00-3 .5v14.25A9 9 0 016 18c2.3 0 4.4.87 6 2.29m0-14.25a9 9 0 016-2.29c1.05 0 2.06.18 3 .5v14.25a9 9 0 00-9 1.79m0-14.25v14.25"/></svg>
                 <span class="hidden md:inline">Methodology</span>
             </button>
-            <button onclick="openSimulationModal()" class="touch-target px-3.5 rounded-xl bg-terraBlue hover:bg-terraBlueHover active:scale-95 text-white text-xs font-semibold gap-2 shadow-lg shadow-terraBlue/25 transition">
+            <button onclick="openTourModal()" aria-label="Quick Guided Tour" class="touch-target px-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/15 text-terraCyan text-xs font-semibold gap-1 transition" title="Welcome Tour: What TerraAnalog does, who it is for, and how to use it">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75a2.25 2.25 0 113.182 2.05c-.58.29-.932.86-.932 1.45v.25m0 3h.008v.008H12v-.008z"/></svg>
+                <span class="hidden lg:inline">Tour</span>
+            </button>
+            <button onclick="openSimulationModal()" title="Open the 3D Geophysical Dossier & Biome Rover Traverse Simulator for the selected site" class="touch-target px-3.5 rounded-xl bg-terraBlue hover:bg-terraBlueHover active:scale-95 text-white text-xs font-semibold gap-2 shadow-lg shadow-terraBlue/25 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
                 <span class="hidden sm:inline">Dossier 3D</span>
             </button>
@@ -110,13 +148,13 @@
     <!-- ===== 3. MAP TOOLBAR: basemap + projection ===== -->
     <div class="fixed top-[74px] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-2 max-w-[96vw]">
         <div class="terra-glass-thin rounded-full p-1 flex items-center gap-1 shadow-md overflow-x-auto" role="group" aria-label="Basemap">
-            <button id="btnBaseSat" onclick="setBasemap('satellite')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Esri World Imagery">Satellite</button>
-            <button id="btnBaseTopo" onclick="setBasemap('topo')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Elevation contours (OpenTopoMap)">Topographic</button>
-            <button id="btnBasePlanet" onclick="setBasemap('planet')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="NASA Trek planetary imagery of the selected body">Moon Surface</button>
+            <button id="btnBaseSat" onclick="setBasemap('satellite')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Earth high-resolution satellite imagery (Esri World Imagery)">Satellite</button>
+            <button id="btnBaseTopo" onclick="setBasemap('topo')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Earth topographic elevation contours (OpenTopoMap)">Topographic</button>
+            <button id="btnBasePlanet" onclick="setBasemap('planet')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="View actual Moon or Mars orbital surface imagery (NASA Trek)">Moon Surface</button>
         </div>
         <div class="terra-glass-thin rounded-full p-1 flex items-center gap-1 shadow-md" role="group" aria-label="Projection">
-            <button id="btnProj2D" onclick="setProjection('2d')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition">2D Map</button>
-            <button id="btnProj3D" onclick="setProjection('3d')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition">3D Globe</button>
+            <button id="btnProj2D" onclick="setProjection('2d')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Flat 2D interactive GIS map">2D Map</button>
+            <button id="btnProj3D" onclick="setProjection('3d')" class="touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition" title="Interactive 3D planetary globe with uniform illumination">3D Globe</button>
         </div>
     </div>
 
@@ -254,7 +292,6 @@
                 <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 flex items-center justify-between"><div><span class="text-xs font-medium text-white block">Hazard &amp; protected polygons</span><span class="text-[10px] text-white/45 block">WDPA-style zones, steep slopes, fragile terrain</span></div><label class="terra-switch"><input id="lyr_hazards" type="checkbox" checked onchange="onLayerToggle()"><span class="terra-switch-slider"></span></label></div>
                 <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 flex items-center justify-between"><div><span class="text-xs font-medium text-white block">Slope heatmap</span><span class="text-[10px] text-white/45 block">Green &lt; 8&deg;, amber &lt; 15&deg;, red &ge; 15&deg; (2D map)</span></div><label class="terra-switch"><input id="lyr_slope" type="checkbox" onchange="onLayerToggle()"><span class="terra-switch-slider"></span></label></div>
                 <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 flex items-center justify-between"><div><span class="text-xs font-medium text-white block">Elevation shading (DEM)</span><span class="text-[10px] text-white/45 block">Esri hillshade overlay, Earth 2D map</span></div><label class="terra-switch"><input id="lyr_dem" type="checkbox" onchange="onLayerToggle()"><span class="terra-switch-slider"></span></label></div>
-                <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 flex items-center justify-between"><div><span class="text-xs font-medium text-white block">Day / night terminator</span><span class="text-[10px] text-white/45 block">Solar illumination on the 3D globe</span></div><label class="terra-switch"><input id="lyr_sun" type="checkbox" checked onchange="onLayerToggle()"><span class="terra-switch-slider"></span></label></div>
             </div>
         </div>
     </aside>
@@ -290,14 +327,18 @@
         <div class="flex items-center gap-2"><span class="legend-dot" style="background:#FF453A"></span>Protected area / high hazard</div>
     </div>
 
-    <!-- ===== 7. BOTTOM BAR (minimal) ===== -->
+    <!-- ===== 7. BOTTOM BAR (minimal + Center Map) ===== -->
     <nav class="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 terra-glass rounded-[26px] p-1.5 flex items-center gap-1.5 shadow-2xl">
-        <button onclick="toggleLeftSidebar()" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold text-white/85 hover:bg-white/10 transition">Filters</button>
-        <button onclick="toggleRightSidebar()" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold text-white/85 hover:bg-white/10 transition">Results</button>
+        <button onclick="toggleLeftSidebar()" title="Show or hide the quantitative filters & scoring panel" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold text-white/85 hover:bg-white/10 transition">Filters</button>
+        <button onclick="toggleRightSidebar()" title="Show or hide the ranked Earth analog results list" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold text-white/85 hover:bg-white/10 transition">Results</button>
+        <button onclick="resetCameraView()" title="Reset the active 2D map or 3D globe back to its default global overview" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold text-terraCyan hover:bg-white/10 gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path stroke-linecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+            <span>Center Map</span>
+        </button>
         <div class="w-px h-5 bg-white/10"></div>
-        <button onclick="zoomMap(-1)" aria-label="Zoom out" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white text-base transition">&minus;</button>
+        <button onclick="zoomMap(-1)" aria-label="Zoom out" title="Zoom out" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white text-base transition">&minus;</button>
         <span id="zoomBadge" class="px-1 text-[11px] font-semibold text-white/70 tabular-nums min-w-[44px] text-center">Z 2</span>
-        <button onclick="zoomMap(1)" aria-label="Zoom in" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white text-base transition">+</button>
+        <button onclick="zoomMap(1)" aria-label="Zoom in" title="Zoom in" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white text-base transition">+</button>
     </nav>
 
     <div id="terraToast" class="fixed top-[124px] left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl terra-glass text-xs font-medium text-white shadow-2xl flex items-center gap-2 opacity-0 -translate-y-4 transition-all duration-300 pointer-events-none max-w-[90vw]">
@@ -354,9 +395,13 @@
                         <span class="text-xs font-semibold text-white block mb-1.5">Area hazards</span>
                         <div id="dossierHazards" class="space-y-1.5 text-[11px]"></div>
                     </div>
-                    <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 text-xs">
-                        <span class="font-semibold text-white block">Environmental &amp; ethical assessment (SDG 15)</span>
-                        <p id="simModalEthical" class="text-white/60 leading-relaxed mt-0.5">-</p>
+                    <div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 text-xs space-y-1.5">
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <span class="font-semibold text-white">Environmental, Species &amp; UN SDG Assessment</span>
+                            <div id="dossierSdgBadges" class="flex items-center gap-1 flex-wrap"></div>
+                        </div>
+                        <p id="simModalSpecies" class="text-[11px] text-terraCyan font-medium leading-snug">-</p>
+                        <p id="simModalEthical" class="text-white/70 text-[11px] leading-relaxed">-</p>
                     </div>
                 </div>
             </div>
@@ -391,39 +436,131 @@
         </div>
     </div>
 
-    <!-- ===== 10. MODAL: METHODOLOGY ===== -->
+    <!-- ===== 10. MODAL: METHODOLOGY & SCIENTIFIC REFERENCES ===== -->
     <div id="guideModal" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="terra-glass rounded-[28px] w-full max-w-lg overflow-hidden shadow-2xl border border-white/15">
+        <div class="terra-glass rounded-[28px] w-full max-w-2xl overflow-hidden shadow-2xl border border-white/15">
             <div class="px-6 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
-                <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-full bg-terraBlue"></span><h3 class="text-base font-semibold text-white">Scientific Methodology</h3></div>
+                <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-full bg-terraBlue"></span>
+                    <div><h3 class="text-base font-semibold text-white">Scientific Methodology &amp; Official Open Data</h3><p class="text-[11px] text-white/50">Mathematical model, discard funnel, and verified space-agency / biodiversity portals</p></div>
+                </div>
                 <button onclick="closeGuideModal()" aria-label="Close" class="touch-target w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white text-lg">&times;</button>
             </div>
-            <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto terra-scroll text-xs text-white/80 leading-relaxed">
-                <div class="bg-terraBlue/10 border border-terraBlue/20 rounded-2xl p-4">
-                    <h4 class="font-bold text-white text-sm mb-1">1. Multidimensional Gaussian similarity</h4>
-                    <p class="text-white/70">Each physical dimension i (slope, roughness, thermal swing, elevation, traction, humidity) is scored with a Gaussian kernel around the target value:</p>
-                    <div class="bg-black/40 rounded-xl p-2.5 my-2 chip text-[11px] text-terraCyan text-center">s_i = exp( -0.5 * ((x_i - x_target) / tau_i)^2 )</div>
-                    <p class="text-white/70">The tolerance tau_i is tied to your active filter thresholds, and the weighted sum S = &Sigma; w_i s_i / &Sigma; w_i uses the weights you set. Environmental restrictions (NDVI, water, lithology, protected status, data coverage) then apply multiplicative penalties. Moving any control recalculates every percentage.</p>
-                </div>
-                <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <h4 class="font-bold text-white text-sm mb-1">2. Four-stage discard funnel</h4>
-                    <ul class="list-disc list-inside space-y-1 text-white/60 mt-1.5">
-                        <li><strong class="text-white">Stage 1 - Biology &amp; water:</strong> NDVI above limit or active surface water.</li>
-                        <li><strong class="text-white">Stage 2 - Geology:</strong> lithology filter.</li>
-                        <li><strong class="text-white">Stage 3 - Topography &amp; mobility:</strong> slope, roughness, elevation and rover traction index.</li>
-                        <li><strong class="text-white">Stage 4 - Climate:</strong> humidity and diurnal thermal swing.</li>
-                    </ul>
-                </div>
-                <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <h4 class="font-bold text-white text-sm mb-1">3. Marker colours &amp; hazards</h4>
-                    <p class="text-white/70">Green = passes all filters, similarity &ge; 75% and open terrain. Yellow = caution (filter failure, score &lt; 75% or managed reserve). Red = protected area or critical hazard. Hazard polygons are indicative footprints generated from site attributes; they are not official WDPA boundaries.</p>
-                </div>
-                <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <h4 class="font-bold text-white text-sm mb-1">4. Rover simulation</h4>
-                    <p class="text-white/70">A 600 m traverse is generated from the site's slope, roughness, humidity and thermal swing. Wheel friction mu = 0.15 + 0.6 &times; traction index; the run fails on rollover (&gt; 32&deg; tilt), loss of traction or battery depletion.</p>
+            <div class="px-6 pt-3">
+                <div class="bg-black/40 p-1 rounded-xl border border-white/10 grid grid-cols-2 gap-1 text-xs">
+                    <button id="guideTabMath" onclick="setGuideTab('math')" class="touch-target min-h-[32px] rounded-lg font-semibold tab-on transition">1. Mathematical Model &amp; Physics</button>
+                    <button id="guideTabRefs" onclick="setGuideTab('refs')" class="touch-target min-h-[32px] rounded-lg font-semibold tab-off transition">2. Official Open Data Sources (13)</button>
                 </div>
             </div>
-            <div class="px-6 py-4 bg-black/40 border-t border-white/10 flex justify-end">
+            <div class="p-6 space-y-4 max-h-[64vh] overflow-y-auto terra-scroll text-xs text-white/80 leading-relaxed">
+                <!-- TAB 1: MATHEMATICAL MODEL -->
+                <div id="guideViewMath" class="space-y-3.5">
+                    <div class="bg-terraBlue/10 border border-terraBlue/20 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-1">1. Multidimensional Gaussian similarity</h4>
+                        <p class="text-white/70">Each physical dimension i (slope, roughness, thermal swing, elevation, traction, humidity) is scored with a Gaussian kernel around the target value:</p>
+                        <div class="bg-black/40 rounded-xl p-2.5 my-2 chip text-[11px] text-terraCyan text-center">s_i = exp( -0.5 * ((x_i - x_target) / tau_i)^2 )</div>
+                        <p class="text-white/70">The tolerance tau_i is tied to your active filter thresholds, and the weighted sum S = &Sigma; w_i s_i / &Sigma; w_i uses the weights you set. Environmental restrictions (NDVI, water, lithology, protected status, data coverage) then apply multiplicative penalties. Moving any control recalculates every percentage.</p>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-1">2. Four-stage discard funnel</h4>
+                        <ul class="list-disc list-inside space-y-1 text-white/60 mt-1.5">
+                            <li><strong class="text-white">Stage 1 - Biology &amp; water:</strong> NDVI above limit or active surface water.</li>
+                            <li><strong class="text-white">Stage 2 - Geology:</strong> lithology filter.</li>
+                            <li><strong class="text-white">Stage 3 - Topography &amp; mobility:</strong> slope, roughness, elevation and rover traction index.</li>
+                            <li><strong class="text-white">Stage 4 - Climate:</strong> humidity and diurnal thermal swing.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-1">3. Marker colours &amp; hazards</h4>
+                        <p class="text-white/70">Green = passes all filters, similarity &ge; 75% and open terrain. Yellow = caution (filter failure, score &lt; 75% or managed reserve). Red = protected area or critical hazard. Hazard polygons are indicative footprints generated from site attributes; they are not official WDPA boundaries.</p>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
+                        <h4 class="font-bold text-white text-sm mb-1">4. Rover simulation</h4>
+                        <p class="text-white/70">A 600 m traverse is generated from the site's slope, roughness, humidity and thermal swing. Wheel friction mu = 0.15 + 0.6 &times; traction index; the run fails on rollover (&gt; 32&deg; tilt), loss of traction or battery depletion.</p>
+                    </div>
+                </div>
+
+                <!-- TAB 2: OFFICIAL OPEN DATA SOURCES & SCIENTIFIC REFERENCES -->
+                <div id="guideViewRefs" class="hidden space-y-3">
+                    <div class="bg-terraBlue/10 border border-terraBlue/25 rounded-2xl p-3 text-[11px] text-white/75 leading-relaxed">
+                        <strong class="text-white">Official Open Data Sources &amp; Scientific References.</strong> Click any verified portal below to inspect the primary satellite, radar, planetary, and biodiversity archives used to calibrate TerraAnalog's parameters and UN SDG alerts.
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <!-- Card 1: NASA Earth Observation -->
+                        <div class="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2">
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan">1. NASA Earth Observation</div>
+                            <a href="https://search.earthdata.nasa.gov/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">NASA Earthdata Search</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">SRTM/ASTER elevation, MODIS NDVI &amp; surface parameters.</p>
+                            </a>
+                            <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">NASA Worldview</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Multi-temporal Earth satellite imagery validation.</p>
+                            </a>
+                            <a href="https://www.earthdata.nasa.gov/centers/sedac-daac/map-gallery" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">NASA SEDAC</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Human footprint &amp; socioeconomic sustainability layers.</p>
+                            </a>
+                        </div>
+
+                        <!-- Card 2: NASA Moon & Mars Planetary Data -->
+                        <div class="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2">
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan">2. NASA Moon &amp; Mars Planetary Data</div>
+                            <a href="https://pds.nasa.gov/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">NASA Planetary Data System (PDS)</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Martian &amp; Lunar topography and mineralogy benchmarks.</p>
+                            </a>
+                            <a href="https://pds-geosciences.wustl.edu/missions/lro/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">LRO Geosciences Node</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">LOLA lunar elevation &amp; slope profiles.</p>
+                            </a>
+                            <a href="https://pds-geosciences.wustl.edu/missions/lro/diviner.htm" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">LRO Diviner Lunar Radiometer</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Thermal swing &amp; polar cold-trap temperature data.</p>
+                            </a>
+                        </div>
+
+                        <!-- Card 3: International Space Agencies -->
+                        <div class="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2">
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan">3. International Space Agencies</div>
+                            <a href="https://dataspace.copernicus.eu/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">ESA Copernicus Data Space</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Sentinel-1 SAR roughness &amp; Sentinel-2 multispectral indices.</p>
+                            </a>
+                            <a href="https://donnees-data.asc-csa.gc.ca/en/dataset/rcm" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">CSA RADARSAT Constellation Mission (RCM)</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">C-band SAR surface roughness &amp; Arctic analog monitoring.</p>
+                            </a>
+                            <a href="https://gportal.jaxa.jp/gpr/index/index" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">JAXA G-Portal</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">ALOS World 3D global DEM &amp; moisture datasets.</p>
+                            </a>
+                        </div>
+
+                        <!-- Card 4: Biodiversity, Land Cover & UN SDG Protection -->
+                        <div class="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2">
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-terraGreen">4. Biodiversity, Land Cover &amp; UN SDG Protection</div>
+                            <a href="https://www.protectedplanet.net/en/data/wdpca" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">Protected Planet / WDPA</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Global protected areas &amp; Ramsar zones for SDG 15/14/6 alerts.</p>
+                            </a>
+                            <a href="https://esa-worldcover.org/en/data-access" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">ESA WorldCover</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">10m global land-cover classification.</p>
+                            </a>
+                            <a href="http://www.conabio.gob.mx/informacion/gis/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">CONABIO Geoportal</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">Endemic species &amp; fragile Mexican ecosystems (e.g., Cuatro Ci&eacute;negas).</p>
+                            </a>
+                            <a href="https://www.inegi.org.mx/programas/usyv/" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition">
+                                <div class="flex items-center justify-between"><span class="font-semibold text-white text-[11px]">INEGI Land Use &amp; Vegetation</span><span class="text-terraCyan text-[10px]">&nearr;</span></div>
+                                <p class="text-[10px] text-white/55 mt-0.5 leading-snug">High-resolution Mexican soil &amp; vegetation cartography.</p>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-black/40 border-t border-white/10 flex justify-between items-center">
+                <button onclick="setGuideTab(document.getElementById('guideViewRefs').classList.contains('hidden') ? 'refs' : 'math')" id="guideSwitchBtn" class="text-xs font-semibold text-terraCyan hover:underline">View Official Open Data Portals &rarr;</button>
                 <button onclick="closeGuideModal()" class="touch-target px-4 rounded-xl bg-terraBlue hover:bg-terraBlueHover text-xs font-semibold text-white transition">Got it</button>
             </div>
         </div>
@@ -478,6 +615,100 @@
             <div class="px-6 py-3 bg-black/40 border-t border-white/10 flex justify-between items-center flex-shrink-0">
                 <span id="ingestSummaryStats" class="text-xs text-white/60">-</span>
                 <button onclick="closeDataModal()" class="touch-target px-4 rounded-xl bg-terraBlue hover:bg-terraBlueHover text-xs font-semibold text-white transition">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 12. MODAL: WELCOME / INTERACTIVE GUIDED TOUR ===== -->
+    <div id="tourModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="terra-glass rounded-[28px] w-full max-w-xl overflow-hidden shadow-2xl border border-white/20">
+            <div class="px-6 pt-5 pb-3 flex items-center justify-between border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0A84FF] via-[#0055D4] to-[#011430] flex items-center justify-center border border-white/20">
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="8" ry="3.2" transform="rotate(-24 12 12)" stroke="#5AA9FF" stroke-width="1.5"/></svg>
+                    </div>
+                    <div>
+                        <span id="tourStepLabel" class="text-[10px] font-bold uppercase tracking-wider text-terraCyan block">STEP 1 OF 4 &bull; QUICK TOUR</span>
+                        <h3 id="tourTitle" class="text-base font-bold text-white">Welcome to TerraAnalog</h3>
+                    </div>
+                </div>
+                <button onclick="closeTourModal()" aria-label="Skip tour" title="Close tour" class="touch-target px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold transition">Skip</button>
+            </div>
+
+            <!-- Step progress dots -->
+            <div class="px-6 pt-4 flex items-center gap-2">
+                <button onclick="setTourStep(0)" id="tourDot0" class="h-1.5 flex-1 rounded-full bg-terraBlue transition-all" aria-label="Step 1"></button>
+                <button onclick="setTourStep(1)" id="tourDot1" class="h-1.5 flex-1 rounded-full bg-white/15 transition-all" aria-label="Step 2"></button>
+                <button onclick="setTourStep(2)" id="tourDot2" class="h-1.5 flex-1 rounded-full bg-white/15 transition-all" aria-label="Step 3"></button>
+                <button onclick="setTourStep(3)" id="tourDot3" class="h-1.5 flex-1 rounded-full bg-white/15 transition-all" aria-label="Step 4"></button>
+            </div>
+
+            <div class="p-6 text-xs text-white/85 leading-relaxed space-y-4">
+                <!-- STEP 1: What & Who -->
+                <div id="tourSlide0" class="space-y-3.5">
+                    <div class="bg-terraBlue/12 border border-terraBlue/30 rounded-2xl p-4 space-y-2">
+                        <h4 class="text-sm font-bold text-white">What is TerraAnalog?</h4>
+                        <p class="text-white/80 leading-relaxed">TerraAnalog matches craters, lava tubes, and paleolakes on the <strong class="text-white">Moon and Mars</strong> with their closest geological twin sites on <strong class="text-white">Earth</strong> using NASA, ESA, and USGS satellite data. Before any rover touches the ground, it checks whether testing there would harm fragile terrestrial ecosystems or violate <strong class="text-terraGreen">UN Sustainable Development Goals (SDGs)</strong>.</p>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-terraCyan block">Who It Is Built For</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-black/40 border border-white/10 rounded-xl p-2.5 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-terraBlue flex-shrink-0"></span><div><strong class="text-white block text-[11px]">Space Mission Planners</strong><span class="text-[10px] text-white/55">Select &amp; validate rover testbeds</span></div></div>
+                            <div class="bg-black/40 border border-white/10 rounded-xl p-2.5 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-terraCyan flex-shrink-0"></span><div><strong class="text-white block text-[11px]">Planetary Scientists</strong><span class="text-[10px] text-white/55">Compare geology &amp; spectral minerals</span></div></div>
+                            <div class="bg-black/40 border border-white/10 rounded-xl p-2.5 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-terraGreen flex-shrink-0"></span><div><strong class="text-white block text-[11px]">Environmental Agencies</strong><span class="text-[10px] text-white/55">Enforce WDPA &amp; UN SDG protections</span></div></div>
+                            <div class="bg-black/40 border border-white/10 rounded-xl p-2.5 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-terraAmber flex-shrink-0"></span><div><strong class="text-white block text-[11px]">Students &amp; Educators</strong><span class="text-[10px] text-white/55">Explore Earth-Moon-Mars links in 3D</span></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Pick a World & Target -->
+                <div id="tourSlide1" class="hidden space-y-3.5">
+                    <div class="bg-terraBlue/12 border border-terraBlue/30 rounded-2xl p-4 space-y-2">
+                        <h4 class="text-sm font-bold text-white">1. Pick a World &amp; Planetary Target</h4>
+                        <p class="text-white/80 leading-relaxed">Use the top bar to switch between the <strong class="text-white">Moon</strong> (e.g., Shackleton Crater, Mare Tranquillitatis) and <strong class="text-white">Mars</strong> (e.g., Jezero Crater, Olympus Mons).</p>
+                        <p class="text-white/75 leading-relaxed">Click any target marker on the Moon/Mars surface map or 3D Globe to inspect its <strong class="text-terraCyan">Best Earth Analog</strong>, match percentage, and why they match—then jump straight to Earth with one click.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><strong class="text-white block text-xs">Moon &amp; Mars 2D</strong><span class="text-[10px] text-white/55">NASA Trek global mosaics</span></div>
+                        <div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><strong class="text-white block text-xs">3D Planetary Globe</strong><span class="text-[10px] text-white/55">100% uniform lighting</span></div>
+                        <div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><strong class="text-white block text-xs">Live Scoring</strong><span class="text-[10px] text-white/55">Adjust sliders in real time</span></div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Protect Earth - UN SDGs -->
+                <div id="tourSlide2" class="hidden space-y-3.5">
+                    <div class="bg-terraGreen/12 border border-terraGreen/30 rounded-2xl p-4 space-y-2">
+                        <h4 class="text-sm font-bold text-white">2. Protect Fragile Earth Ecosystems (UN SDGs)</h4>
+                        <p class="text-white/80 leading-relaxed">Many of Earth's best Mars/Moon analogs—like <strong class="text-white">Cuatro Ciénegas</strong> (living stromatolites) or the <strong class="text-white">Atacama Yungay Core</strong> (ancient microbial crusts)—are fragile, irreplaceable habitats.</p>
+                        <p class="text-white/75 leading-relaxed">Whenever you select a site, a prominent <strong class="text-terraAmber">Environmental &amp; UN SDG Impact Alert</strong> appears on screen showing affected UN SDGs (<strong class="text-white">SDG 6, 11, 13, 14, 15</strong>), WDPA status, vulnerable endemic species, and plain-language rover impact warnings.</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap justify-center">
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold text-white" style="background:#56C02B">SDG 15 Life on Land</span>
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold text-white" style="background:#26BDE2">SDG 6 Clean Water</span>
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold text-white" style="background:#3F7E44">SDG 13 Climate Action</span>
+                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold text-white" style="background:#0A97D9">SDG 14 Life Below Water</span>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Test the Rover - Dossier 3D -->
+                <div id="tourSlide3" class="hidden space-y-3.5">
+                    <div class="bg-terraBlue/12 border border-terraBlue/30 rounded-2xl p-4 space-y-2">
+                        <h4 class="text-sm font-bold text-white">3. Test the Rover Across Real Biomes (Dossier 3D)</h4>
+                        <p class="text-white/80 leading-relaxed">Click any analog site and press <strong class="text-terraCyan">Dossier 3D</strong> to drive a simulated rover across a 600 m traverse generated from that site's real slope, roughness, thermal swing, and wheel traction.</p>
+                        <p class="text-white/75 leading-relaxed">The simulator dynamically renders each site's true <strong class="text-white">Biome</strong>—from white gypsum wetlands with turquoise thermal pools to dark volcanic basalt cones, rust-red regolith deserts, and polar ice sheets.</p>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center justify-between">
+                        <span class="text-[11px] text-white/75">Reopen this guide anytime via the <strong class="text-terraCyan">? Tour</strong> button in the top bar.</span>
+                        <span class="chip text-[10px] px-2 py-0.5 rounded-full bg-terraBlue/20 text-terraCyan font-bold">Ready to Explore</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-3.5 bg-black/40 border-t border-white/10 flex items-center justify-between">
+                <button id="tourPrevBtn" onclick="stepTour(-1)" class="touch-target px-4 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition">Back</button>
+                <div class="flex items-center gap-2">
+                    <button id="tourNextBtn" onclick="stepTour(1)" class="touch-target px-5 rounded-xl bg-terraBlue hover:bg-terraBlueHover text-xs font-semibold text-white shadow-md shadow-terraBlue/25 transition">Next &rarr;</button>
+                </div>
             </div>
         </div>
     </div>

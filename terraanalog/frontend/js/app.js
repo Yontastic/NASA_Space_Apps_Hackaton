@@ -67,11 +67,31 @@ function initEarthMap() {
 
 function ensurePlanetMap() {
   if (planetMap) return;
-  planetMap = L.map("planetMap", { crs: L.CRS.EPSG4326, center: [0, 0], zoom: 2, minZoom: 1, maxZoom: 11, zoomControl: false, worldCopyJump: true, attributionControl: true });
-  // NASA Trek WMTS (geographic grid): matrix level = Leaflet zoom - 1
-  const trek = (path, nativeMax, attr) => L.tileLayer(`https://trek.nasa.gov/tiles/${path}/1.0.0/default/default028mm/{z}/{y}/{x}.jpg`, { zoomOffset: -1, minZoom: 1, maxNativeZoom: nativeMax, maxZoom: 11, attribution: attr });
-  planetTiles.moon = trek("Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02", 9, "Imagery: NASA / LRO WAC / ASU via NASA Trek");
-  planetTiles.mars = trek("Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m", 8, "Imagery: NASA / USGS Viking MDIM 2.1 via NASA Trek");
+  const planetBounds = [[-90, -180], [90, 180]];
+  planetMap = L.map("planetMap", {
+    crs: L.CRS.EPSG4326,
+    center: [0, 0],
+    zoom: 1,
+    minZoom: 1,
+    maxZoom: 8,
+    zoomControl: false,
+    worldCopyJump: false,
+    maxBounds: planetBounds,
+    maxBoundsViscosity: 1.0,
+    attributionControl: true
+  });
+  // In L.CRS.EPSG4326, zoom z has 2^(z+1) x 2^z tiles, matching NASA Trek default028mm matrix z 1:1 (zoomOffset: 0)
+  const trek = (path, nativeMax, attr) => L.tileLayer(`https://trek.nasa.gov/tiles/${path}/1.0.0/default/default028mm/{z}/{y}/{x}.jpg`, {
+    zoomOffset: 0,
+    noWrap: true,
+    bounds: planetBounds,
+    minZoom: 0,
+    maxNativeZoom: nativeMax,
+    maxZoom: 8,
+    attribution: attr
+  });
+  planetTiles.moon = trek("Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02", 7, "Imagery: NASA / LRO WAC / ASU via NASA Trek");
+  planetTiles.mars = trek("Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m", 6, "Imagery: NASA / USGS Viking MDIM 2.1 via NASA Trek");
   planetMarkerGroup = L.layerGroup().addTo(planetMap);
   planetMap.on("zoomend", updateZoomBadge);
 }
@@ -92,11 +112,13 @@ function applyView() {
     ["moon", "mars"].forEach(b => { if (b !== appState.body && planetMap.hasLayer(planetTiles[b])) planetMap.removeLayer(planetTiles[b]); });
     if (!planetMap.hasLayer(planetTiles[appState.body])) planetTiles[appState.body].addTo(planetMap);
     if (planetShownBody !== appState.body) {
-      const t = TA.targets[appState.target]; planetMap.setView([t.lat, t.lon], Math.min(t.zoom, 4)); planetShownBody = appState.body;
+      const t = TA.targets[appState.target];
+      planetMap.setView([clamp(t.lat, -75, 75), t.lon], Math.min(t.zoom, 2));
+      planetShownBody = appState.body;
     }
   }
   if (is3d) {
-    TA.globe.resize(); TA.globe.setBody(planet ? appState.body : "earth"); TA.globe.setTerminator(appState.layers.sun); TA.globe.setActive(true);
+    TA.globe.resize(); TA.globe.setBody(planet ? appState.body : "earth"); TA.globe.setActive(true);
   } else { TA.globe.setActive(false); }
   syncToolbar(); applyLayers(); refresh(); updateZoomBadge();
 }
@@ -127,6 +149,26 @@ function zoomMap(d) {
   if (appState.projection === "3d") { TA.globe.zoom(d * 0.25); updateZoomBadge(); return; }
   const m = appState.basemap === "planet" ? planetMap : earthMap; if (!m) return;
   d > 0 ? m.zoomIn() : m.zoomOut();
+}
+function resetCameraView() {
+  if (appState.projection === "3d") {
+    TA.globe.resetView(); updateZoomBadge();
+  } else if (appState.basemap === "planet" && planetMap) {
+    planetMap.invalidateSize();
+    planetMap.flyTo([0, 0], 1, { duration: 1.1 });
+  } else if (earthMap) {
+    earthMap.invalidateSize();
+    earthMap.flyTo([20, 0], 2, { duration: 1.1 });
+  }
+  showToast("Camera reset to global overview");
+}
+
+function siteSdgs(site) {
+  const codes = Array.isArray(site.sdgs) && site.sdgs.length ? site.sdgs : ["SDG 15"];
+  return codes.map(c => TA.sdgCatalog[c] || { code: c, name: "Environmental Protection", color: "#56C02B", short: c });
+}
+function sdgBadgesHtml(site, small) {
+  return siteSdgs(site).map(s => `<span class="sdg-pill ${small ? "sdg-pill-sm" : ""}" style="background:${s.color}" title="${esc(s.code + ": " + s.name)}">${esc(small ? s.short : s.code + " \u2022 " + s.name)}</span>`).join("");
 }
 
 /* --------------------------------------------------------------- markers */
@@ -166,10 +208,12 @@ function renderEarthLayers() {
         const p = pinHtml(COLORS[ev.status], ev.score + "%", selected);
         const icon = L.divIcon({ html: p.html, className: "analog-pin", iconSize: [p.size, p.size], iconAnchor: [p.size / 2, p.size / 2] });
         const m = L.marker([site.lat, site.lon + off], { icon, zIndexOffset: selected ? 1000 : 0, title: `${site.name} - ${ev.score}%` });
-        const popHtml = `<div style="min-width:210px"><div style="font-size:10px;font-weight:700;color:#5AA9FF;text-transform:uppercase">${esc(site.envLabel)} &bull; ${esc(site.country)}</div>
+        const popHtml = `<div style="min-width:230px;max-width:265px"><div style="font-size:10px;font-weight:700;color:#5AA9FF;text-transform:uppercase">${esc(site.envLabel)} &bull; ${esc(site.country)}</div>
           <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px">${esc(site.name)}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.75);margin:4px 0">Similarity: <b style="color:${COLORS[ev.status]}">${ev.score}%</b> &bull; Slope ${site.slope.toFixed(1)}&deg; &bull; Traction ${ev.traction.toFixed(2)}</div>
-          <button onclick="openSimulationModal()" style="width:100%;margin-top:4px;padding:5px 8px;border-radius:8px;background:#0A84FF;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Open Dossier 3D</button></div>`;
+          <div style="font-size:11px;color:rgba(255,255,255,.78);margin:4px 0">Similarity: <b style="color:${COLORS[ev.status]}">${ev.score}%</b> &bull; Slope ${site.slope.toFixed(1)}&deg; &bull; Traction ${ev.traction.toFixed(2)}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin:5px 0">${sdgBadgesHtml(site, true)}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.68);line-height:1.35;margin-bottom:6px"><b>At risk:</b> ${esc(site.vulnerableSpecies || site.ecosystem || "Fragile regolith")}</div>
+          <button onclick="openSimulationModal()" style="width:100%;margin-top:2px;padding:6px 8px;border-radius:8px;background:#0A84FF;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Simulate Rover in Dossier 3D</button></div>`;
         m.bindPopup(popHtml);
         m.on("click", () => selectSite(site.id, { fly: false }));
         if (off === 0) site._primaryMarker = m;
@@ -185,18 +229,65 @@ function bestAnalogFor(key) {
   return { site: best, score: bestScore };
 }
 
+function matchReasonForTarget(t, site) {
+  if (t && t.matchWhy) return t.matchWhy;
+  return `Matches ${t.name}'s ${t.targetSlope}\u00B0 slope, ${t.targetRough} roughness, and ${site.envLabel.toLowerCase()} mineralogy.`;
+}
+
+function jumpToEarthAnalog(siteId) {
+  const site = appState.sites.find(s => s.id === siteId);
+  if (!site) return;
+  appState.basemap = "satellite";
+  applyView();
+  selectSite(site.id, { fly: true });
+  showToast(`Jumped to Best Earth Analog: ${site.name}`);
+}
+
+function openTargetAnalogDossier(siteId) {
+  jumpToEarthAnalog(siteId);
+  openSimulationModal();
+}
+
 function renderPlanetLayers() {
   if (!planetMarkerGroup) return;
   planetMarkerGroup.clearLayers();
   Object.keys(TA.targets).filter(k => TA.targets[k].body === appState.body).forEach(k => {
     const t = TA.targets[k], sel = k === appState.target, best = bestAnalogFor(k);
     const p = pinHtml("#0A84FF", best.score + "%", sel, "target-pin");
-    WRAPS.forEach(off => {
-      const m = L.marker([t.lat, t.lon + off], { icon: L.divIcon({ html: p.html, className: "analog-pin", iconSize: [p.size, p.size], iconAnchor: [p.size / 2, p.size / 2] }), zIndexOffset: sel ? 1000 : 0 });
-      m.bindTooltip(`<b>${esc(t.name)}</b><br>Best Earth analog: ${esc(best.site.name)} (${best.score}%)`, { direction: "right", offset: [14, 0], className: "target-tip" });
-      m.on("click", () => selectTarget(k, true));
-      m.addTo(planetMarkerGroup);
+    // Render once at [lat, lon] since planetary tiles use noWrap: true
+    const m = L.marker([clamp(t.lat, -85, 85), t.lon], {
+      icon: L.divIcon({ html: p.html, className: "analog-pin", iconSize: [p.size, p.size], iconAnchor: [p.size / 2, p.size / 2] }),
+      zIndexOffset: sel ? 1000 : 0
     });
+    const why = matchReasonForTarget(t, best.site);
+    const popHtml = `<div style="min-width:240px;max-width:280px">
+      <div style="font-size:10px;font-weight:800;color:#5AA9FF;text-transform:uppercase;letter-spacing:0.04em">${esc(bodyName(t.body))} TARGET &bull; ${t.lat.toFixed(1)}&deg;, ${t.lon.toFixed(1)}&deg;</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;margin-top:2px">${esc(t.name)}</div>
+      <div style="margin-top:6px;padding:7px 9px;border-radius:10px;background:rgba(10,132,255,0.14);border:1px solid rgba(10,132,255,0.35)">
+        <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;font-weight:700">Best Earth Analog</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:2px">
+          <span style="font-size:12px;font-weight:700;color:#fff">${esc(best.site.name)} (${esc(best.site.country)})</span>
+          <span class="chip" style="font-size:12px;font-weight:800;color:#30D158">${best.score}%</span>
+        </div>
+        <div style="font-size:10.5px;color:rgba(255,255,255,0.8);line-height:1.35;margin-top:4px">${esc(why)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+        <button onclick="jumpToEarthAnalog(${best.site.id})" style="padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.14);color:#fff;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.2);cursor:pointer">View Earth Analog</button>
+        <button onclick="openTargetAnalogDossier(${best.site.id})" style="padding:6px 8px;border-radius:8px;background:#0A84FF;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Open Dossier 3D</button>
+      </div>
+    </div>`;
+    m.bindPopup(popHtml);
+    m.bindTooltip(`<b>${esc(t.name)}</b><br>Best Earth analog: ${esc(best.site.name)} (${best.score}%)`, { direction: "right", offset: [14, 0], className: "target-tip" });
+    m.on("click", () => {
+      if (appState.target !== k) {
+        appState.target = k; appState.mission.targetChosen = true;
+        invalidateEvals(); buildTargetSelect();
+        renderResults(); renderSelCard(); renderFunnel(); renderSpectral(); updateMission();
+      }
+      m.openPopup();
+    });
+    t._planetMarker = m;
+    m.addTo(planetMarkerGroup);
   });
 }
 
@@ -205,12 +296,12 @@ function renderGlobeLayers() {
   if (planet) {
     Object.keys(TA.targets).filter(k => TA.targets[k].body === appState.body).forEach(k => {
       const t = TA.targets[k], best = bestAnalogFor(k);
-      pins.push({ id: "t:" + k, lat: t.lat, lon: t.lon, color: "#0A84FF", label: best.score + "%", selected: k === appState.target, title: `${t.name} - best Earth analog ${best.site.name} (${best.score}%)` });
+      pins.push({ id: "t:" + k, lat: t.lat, lon: t.lon, color: "#0A84FF", label: best.score + "%", selected: k === appState.target, title: `${t.name} | Best Earth Analog: ${best.site.name} (${best.score}%) - ${matchReasonForTarget(t, best.site)}` });
     });
   } else {
     visibleSites().forEach(site => {
       const ev = E(site);
-      if (appState.layers.markers) pins.push({ id: "s:" + site.id, lat: site.lat, lon: site.lon, color: COLORS[ev.status], label: ev.score + "%", selected: site.id === appState.selectedId, title: `${site.name} - ${ev.score}%` });
+      if (appState.layers.markers) pins.push({ id: "s:" + site.id, lat: site.lat, lon: site.lon, color: COLORS[ev.status], label: ev.score + "%", selected: site.id === appState.selectedId, title: `${site.name} - ${ev.score}% (${(site.sdgs || ["SDG 15"]).join(", ")})` });
       if (appState.layers.slope) {
         const sc = site.slope < 8 ? "48,209,88" : site.slope < 15 ? "255,159,10" : "255,69,58";
         polys.push({ pts: TA.engine.polygon(site, { kind: "slope_heat", radiusKm: 130, offset: [0, 0] }), fill: `rgba(${sc},0.22)`, stroke: `rgba(${sc},0.45)` });
@@ -227,11 +318,10 @@ function renderGlobeLayers() {
 function applyLayers() {
   if (!earthMap) return;
   if (appState.layers.dem && appState.basemap !== "planet") { if (!earthMap.hasLayer(demLayer)) demLayer.addTo(earthMap); } else if (earthMap.hasLayer(demLayer)) earthMap.removeLayer(demLayer);
-  TA.globe.setTerminator(appState.layers.sun);
 }
 function onLayerToggle() {
   const L_ = appState.layers;
-  L_.markers = $("lyr_markers").checked; L_.hazards = $("lyr_hazards").checked; L_.slope = $("lyr_slope").checked; L_.dem = $("lyr_dem").checked; L_.sun = $("lyr_sun").checked;
+  L_.markers = $("lyr_markers").checked; L_.hazards = $("lyr_hazards").checked; L_.slope = $("lyr_slope").checked; L_.dem = $("lyr_dem").checked;
   if (L_.dem && appState.basemap === "planet") showToast("Elevation shading applies to the Earth map");
   applyLayers(); scheduleRefresh();
 }
@@ -256,8 +346,13 @@ function focusOnSite(site) {
   else { earthMap.invalidateSize(); earthMap.flyTo([site.lat, nearestLon(earthMap, site.lon)], Math.max(earthMap.getZoom(), 6), { duration: 1.3 }); }
 }
 function onPinClick(pid) {
-  if (pid.startsWith("t:")) selectTarget(pid.slice(2), true);
-  else selectSite(parseInt(pid.slice(2), 10), { fly: true });
+  if (pid.startsWith("t:")) {
+    const k = pid.slice(2), best = bestAnalogFor(k);
+    selectTarget(k, true);
+    if (best.site) { appState.selectedId = best.site.id; appState.cardClosed = false; renderSelCard(); }
+  } else {
+    selectSite(parseInt(pid.slice(2), 10), { fly: true });
+  }
 }
 
 function buildTargetSelect() {
@@ -278,8 +373,13 @@ function selectTarget(key, user) {
   appState.basemap = "planet"; buildTargetSelect(); planetShownBody = planetShownBody === t.body ? planetShownBody : null;
   applyView();
   // fly to and highlight the target
-  if (appState.projection === "3d") TA.globe.flyTo(t.lat, t.lon, 1.6);
-  else { planetMap.invalidateSize(); planetMap.flyTo([t.lat, nearestLon(planetMap, t.lon)], t.zoom, { duration: 1.4 }); }
+  if (appState.projection === "3d") {
+    TA.globe.flyTo(t.lat, t.lon, 1.5);
+  } else if (planetMap) {
+    planetMap.invalidateSize();
+    planetMap.flyTo([clamp(t.lat, -78, 78), t.lon], Math.min(t.zoom, 3), { duration: 1.2 });
+    setTimeout(() => { if (t._planetMarker) t._planetMarker.openPopup(); }, 650);
+  }
   showToast(`Target: ${t.name}`);
 }
 
@@ -301,12 +401,13 @@ function renderResults() {
     else pill = `<div class="px-2 py-1 rounded-lg bg-[#FFD60A]/15 border border-[#FFD60A]/30 text-[#FFD60A] text-[10px] font-medium leading-tight"><strong>Caution:</strong> ${esc(ev.reasons[0] || (site.alertType === "medium" ? "managed reserve - " + site.alertLabel : "similarity below 75%"))}</div>`;
     return `<div onclick="selectSite(${site.id}, {fly:true})" class="p-3.5 rounded-2xl cursor-pointer border transition ${cardClass}">
       <div class="flex items-start justify-between gap-2 mb-1.5">
-        <div class="min-w-0"><span class="text-[9px] font-bold tracking-wider uppercase text-terraCyan">#${i + 1} &bull; ${esc(site.envLabel)}</span>
+        <div class="min-w-0"><span class="text-[9px] font-bold tracking-wider uppercase text-terraCyan">#${i + 1} &bull; ${esc(site.biomeLabel || site.envLabel)}</span>
           <h3 class="text-sm font-semibold text-white leading-tight mt-0.5">${esc(site.name)}</h3>
           <p class="text-[11px] text-white/50">${esc(site.country)} &bull; Elevation ${site.elevation} m</p></div>
         <div class="text-right flex-shrink-0"><span class="text-lg font-black chip ${col} block">${ev.score}%</span><span class="text-[9px] font-medium text-white/40 block">Similarity</span></div>
       </div>
-      <div class="my-2">${pill}</div>
+      <div class="flex items-center gap-1 flex-wrap my-1.5">${sdgBadgesHtml(site, true)}</div>
+      <div class="my-1.5">${pill}</div>
       <div class="grid grid-cols-5 gap-1 text-[10px] bg-white/[0.03] p-1.5 rounded-xl text-center mb-2">
         <div><span class="text-white/40 block">NDVI</span><strong class="chip">${site.ndvi.toFixed(2)}</strong></div>
         <div><span class="text-white/40 block">Slope</span><strong class="chip">${site.slope.toFixed(1)}&deg;</strong></div>
@@ -314,9 +415,9 @@ function renderResults() {
         <div><span class="text-white/40 block">Humid.</span><strong class="chip">${site.relativeHumidity.toFixed(0)}%</strong></div>
         <div><span class="text-white/40 block">Traction</span><strong class="chip">${ev.traction.toFixed(2)}</strong></div>
       </div>
-      <p class="text-[11px] text-white/70 line-clamp-2 leading-relaxed mb-2">${esc(site.desc)}</p>
+      <p class="text-[10.5px] text-white/75 leading-snug mb-2"><span class="text-white/45 font-medium">Ecosystem / Species:</span> ${esc(site.vulnerableSpecies || site.desc)}</p>
       <div class="flex items-center justify-between text-xs pt-1 border-t border-white/5">
-        <button onclick="event.stopPropagation(); selectSite(${site.id}, {fly:true}); openSimulationModal();" class="text-terraCyan hover:underline text-[11px] font-semibold">Open dossier &rsaquo;</button>
+        <button onclick="event.stopPropagation(); selectSite(${site.id}, {fly:true}); openSimulationModal();" class="text-terraCyan hover:underline text-[11px] font-semibold">Simulate in Dossier 3D &rsaquo;</button>
         <span class="text-[10px] text-white/40">${ev.hazards.length} mapped hazard${ev.hazards.length === 1 ? "" : "s"}</span>
       </div></div>`;
   }).join("");
@@ -327,16 +428,38 @@ function renderSelCard() {
   if (!site || appState.cardClosed) { card.classList.add("hidden"); return; }
   const ev = E(site), rank = rankedSites().findIndex(s => s.id === site.id) + 1;
   card.classList.remove("hidden");
-  $("selRank").textContent = `ANALOG #${rank || "-"} - ${site.envLabel}`;
-  $("selTitle").textContent = site.name; $("selMeta").textContent = `${site.country} - ${site.elevation} m`;
-  const sc = $("selScore"); sc.textContent = ev.score + "%"; sc.className = `text-sm font-bold chip ${statusClass(ev.status)}`;
-  $("selSlope").textContent = `${site.slope.toFixed(1)}\u00B0 / ${site.roughness.toFixed(2)}`; $("selTrac").textContent = ev.traction.toFixed(2);
-  const st = $("selStatus"), map = {
-    viable: ["bg-terraGreen/15 text-terraGreen border-terraGreen/30", "High analog viability"],
-    caution: ["bg-[#FFD60A]/15 text-[#FFD60A] border-[#FFD60A]/30", ev.reasons[0] ? "Caution: " + ev.reasons[0] : "Caution / moderate risk"],
-    hazard: ["bg-terraRed/15 text-terraRed border-terraRed/30", `Protected area / high hazard: ${site.alertLabel}`]
-  };
-  st.className = `mb-2.5 text-[11px] font-medium px-2.5 py-1 rounded-lg border ${map[ev.status][0]}`; st.textContent = map[ev.status][1];
+  $("selRank").textContent = `ANALOG #${rank || "-"} \u2022 ${site.envLabel}`;
+  const bb = $("selBiomeBadge"); if (bb) bb.textContent = site.biomeLabel || site.envLabel;
+  $("selTitle").textContent = site.name;
+  $("selMeta").textContent = `(${site.country}, ${site.elevation} m)`;
+  const sc = $("selScore"); sc.textContent = ev.score + "%"; sc.className = `font-bold chip text-[11px] ${statusClass(ev.status)}`;
+  $("selSlope").textContent = `${site.slope.toFixed(1)}\u00B0 / ${site.roughness.toFixed(2)}`;
+  $("selTrac").textContent = ev.traction.toFixed(2);
+
+  const body = $("selCardBody"), minBtn = $("selMinBtn");
+  if (body) body.classList.toggle("hidden", !!appState.cardMinimized);
+  if (minBtn) minBtn.innerHTML = appState.cardMinimized ? "&#43;" : "&minus;";
+
+  // Populate Compact Environmental & UN SDG Impact Alert Box
+  const alertBox = $("sdgAlertCard"), hdr = $("sdgAlertHeader");
+  if (alertBox) {
+    const isHigh = site.alertType === "high" || ev.status === "hazard";
+    const isMed = site.alertType === "medium" || ev.status === "caution";
+    alertBox.className = "rounded-xl p-2 border space-y-1 transition max-h-[108px] overflow-y-auto terra-scroll " + (
+      isHigh ? "bg-terraRed/12 border-terraRed/40" :
+      isMed  ? "bg-terraAmber/12 border-terraAmber/40" :
+               "bg-terraGreen/10 border-terraGreen/35"
+    );
+    if (hdr) hdr.className = "text-[9.5px] font-extrabold uppercase tracking-wider flex items-center gap-1 truncate " + (isHigh ? "text-terraRed" : isMed ? "text-terraAmber" : "text-terraGreen");
+    $("sdgAlertWdpa").textContent = site.protectedName || site.alertLabel || "WDPA Assessed";
+    $("sdgAlertBadges").innerHTML = sdgBadgesHtml(site, true);
+    $("sdgAlertSpecies").textContent = site.vulnerableSpecies || site.ecosystem || "Fragile desert soil crust";
+    $("sdgAlertImpact").textContent = site.roverImpact || "Follow standard low-impact rover field testing protocols.";
+  }
+}
+function toggleMinimizeSelCard() {
+  appState.cardMinimized = !appState.cardMinimized;
+  renderSelCard();
 }
 function closeSelCard() { appState.cardClosed = true; $("selCard").classList.add("hidden"); }
 
@@ -486,10 +609,9 @@ function fillDossier(site) {
     benchRow("Elevation", `${site.elevation} m`, `max ${th.maxElevation} m`, site.elevation <= th.maxElevation);
   $("dossierHazards").innerHTML = ev.hazards.length ? ev.hazards.map(h => `<div class="p-2 rounded-lg border ${h.severity === "high" ? "bg-terraRed/10 border-terraRed/30" : "bg-terraAmber/10 border-terraAmber/30"}"><strong class="${h.severity === "high" ? "text-terraRed" : "text-terraAmber"}">${esc(h.title)}</strong><span class="text-white/65 block leading-snug mt-0.5">${esc(h.text)}</span></div>`).join("")
     : `<div class="p-2 rounded-lg border bg-terraGreen/10 border-terraGreen/30 text-terraGreen">No mapped hazards for this site.</div>`;
-  $("simModalEthical").textContent = site.alertType === "high"
-    ? `Active alert (${site.alertLabel}): ${site.protectedName || "protected or biologically sensitive zone"}. Non-invasion protocols and permits are mandatory under SDG 15.`
-    : site.alertType === "medium" ? `Managed reserve (${site.alertLabel}): low-impact operations with restricted corridors.`
-    : `Low impact (${site.alertLabel}): open terrain without strict reserve restrictions.`;
+  const dBadges = $("dossierSdgBadges"); if (dBadges) dBadges.innerHTML = sdgBadgesHtml(site, true);
+  const dSpec = $("simModalSpecies"); if (dSpec) dSpec.textContent = `Ecosystem & Species at Risk: ${site.vulnerableSpecies || site.ecosystem || "Fragile desert regolith"}`;
+  $("simModalEthical").textContent = `${site.roverImpact || "Standard non-invasion protocols apply."} (${site.protectedName || site.alertLabel})`;
 }
 function updateDossierLive() {
   const site = selectedSite(); if (!site || $("simulationModal").classList.contains("hidden")) return;
@@ -609,10 +731,17 @@ function openDataModal() { $("dataModal").classList.remove("hidden"); renderData
 function closeDataModal() { $("dataModal").classList.add("hidden"); }
 function updateIngestSummary() { $("ingestSummaryStats").textContent = `Active catalog: ${appState.sites.length} analog sites in memory`; }
 function renderDataScope() {
-  $("dsScopeList").innerHTML = TA.dataSources.map(g => `<div><div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan mb-1.5">${g.group}</div><div class="space-y-1.5">` +
-    g.items.map(it => `<div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><div class="flex items-center justify-between gap-2"><span class="font-semibold text-white">${esc(it.name)}</span>
+  const refsHtml = (TA.scientificReferences || []).length ? `<div class="pt-1"><div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan mb-2">Official Open Data Portals &amp; Scientific References (13)</div><div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">` +
+    TA.scientificReferences.map(g => `<div class="bg-white/[0.04] border border-white/10 rounded-2xl p-3 space-y-1.5"><div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan">${esc(g.group)}</div>` +
+      g.items.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" class="block p-2 rounded-xl bg-black/35 hover:bg-terraBlue/15 border border-white/10 hover:border-terraBlue/40 transition"><div class="flex items-center justify-between gap-2"><span class="font-semibold text-white text-[11px]">${esc(r.name)}</span><span class="text-terraCyan text-[10px] flex-shrink-0">&nearr;</span></div><div class="text-[10px] text-white/55 mt-0.5 leading-snug">${esc(r.desc)}</div></a>`).join("") +
+    `</div>`).join("") + `</div></div>` : "";
+
+  const scopeHtml = TA.dataSources.map(g => `<div><div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan mb-1.5">${esc(g.group)}</div><div class="space-y-1.5">` +
+    g.items.map(it => `<div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><div class="flex items-center justify-between gap-2">${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-white hover:text-terraCyan transition">${esc(it.name)} &nearr;</a>` : `<span class="font-semibold text-white">${esc(it.name)}</span>`}
       <span class="chip text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${it.mode === "live" ? "bg-terraGreen/15 text-terraGreen" : "bg-white/10 text-white/70"}">${it.mode === "live" ? "LIVE" : "EMBEDDED"}</span></div>
       <div class="text-[10px] text-white/50 mt-0.5">${esc(it.provider)} &bull; ${esc(it.scope)}</div><div class="text-[11px] text-white/70 mt-0.5">Used for: ${esc(it.use)}</div></div>`).join("") + `</div></div>`).join("");
+
+  $("dsScopeList").innerHTML = refsHtml + scopeHtml;
 }
 function setDataTab(tab) {
   const map = { scope: "Scope", packs: "Packs", file: "File", paste: "Paste" };
@@ -627,11 +756,23 @@ function normalizeSite(r) {
   const lat = num(r.lat ?? r.latitude, NaN), lon = num(r.lon ?? r.longitude, NaN);
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
   const minerals = Array.isArray(r.minerals) ? r.minerals : String(r.minerals || "Basalt|Olivine").split("|").map(m => m.trim()).filter(Boolean);
-  return { id: appState.nextId++, name: r.name || `Imported site ${appState.nextId}`, country: r.country || "Unknown", env: r.env || "Volcanic", envLabel: r.envLabel || r.envlabel || "Imported analog",
+  return {
+    id: appState.nextId++, name: r.name || `Imported site ${appState.nextId}`, country: r.country || "Unknown",
+    env: r.env || "Volcanic", envLabel: r.envLabel || r.envlabel || "Imported analog",
+    biome: r.biome || "volcanic_basalt", biomeLabel: r.biomeLabel || "Volcanic Basalt & Regolith",
     lat, lon, elevation: num(r.elevation, 1000), slope: num(r.slope, 6), roughness: num(r.roughness, 0.5), ndvi: num(r.ndvi, 0.04),
     liquidWater: r.liquidWater === true || String(r.liquid_water || r.liquidwater || r.liquidWater).toLowerCase() === "true",
-    thermalAmplitude: num(r.thermalAmplitude ?? r.thermal_amplitude ?? r.thermalamplitude ?? r.thermal, 20), relativeHumidity: num(r.relativeHumidity ?? r.relative_humidity ?? r.relativehumidity ?? r.humidity, 20),
-    lithology: r.lithology || "basalt_volcanic", minerals: minerals.length ? minerals : ["Basalt"], coverage: 100, alertType: ["high", "medium", "low"].includes(r.alertType) ? r.alertType : "low", alertLabel: r.alertLabel || "Imported", protectedName: r.protectedName || "", desc: r.desc || r.description || "Site imported through the Data Sources panel." };
+    thermalAmplitude: num(r.thermalAmplitude ?? r.thermal_amplitude ?? r.thermalamplitude ?? r.thermal, 20),
+    relativeHumidity: num(r.relativeHumidity ?? r.relative_humidity ?? r.relativehumidity ?? r.humidity, 20),
+    lithology: r.lithology || "basalt_volcanic", minerals: minerals.length ? minerals : ["Basalt"], coverage: 100,
+    alertType: ["high", "medium", "low"].includes(r.alertType) ? r.alertType : "low",
+    alertLabel: r.alertLabel || "WDPA Assessed", protectedName: r.protectedName || "",
+    sdgs: Array.isArray(r.sdgs) && r.sdgs.length ? r.sdgs : ["SDG 15"],
+    ecosystem: r.ecosystem || "Terrestrial planetary analog testbed",
+    vulnerableSpecies: r.vulnerableSpecies || "Local desert soil crusts & micro-habitats",
+    roverImpact: r.roverImpact || "Follow low-impact rover traverse guidelines and stay on approved test corridors.",
+    desc: r.desc || r.description || "Site imported through the Data Sources panel."
+  };
 }
 function addSites(list) {
   let added = 0;
@@ -686,15 +827,58 @@ function downloadCsvTemplate() {
   showToast("CSV template downloaded");
 }
 
-/* ----------------------------------------------------------------- UI chrome */
-function openGuideModal() { $("guideModal").classList.remove("hidden"); }
+/* ---------------------------------------------------- UI chrome & Guided Tour */
+let tourStep = 0;
+const TOUR_TITLES = [
+  "Welcome to TerraAnalog",
+  "Pick a World & Planetary Target",
+  "Protect Earth — UN SDGs & Ecosystems",
+  "Test the Rover Across Real Biomes"
+];
+function setTourStep(idx) {
+  tourStep = clamp(idx, 0, 3);
+  $("tourStepLabel").textContent = `STEP ${tourStep + 1} OF 4 \u2022 QUICK TOUR`;
+  $("tourTitle").textContent = TOUR_TITLES[tourStep];
+  for (let i = 0; i < 4; i++) {
+    const slide = $("tourSlide" + i), dot = $("tourDot" + i);
+    if (slide) slide.classList.toggle("hidden", i !== tourStep);
+    if (dot) dot.className = "h-1.5 flex-1 rounded-full transition-all " + (i <= tourStep ? "bg-terraBlue" : "bg-white/15");
+  }
+  const prev = $("tourPrevBtn"), next = $("tourNextBtn");
+  if (prev) prev.classList.toggle("invisible", tourStep === 0);
+  if (next) next.innerHTML = tourStep === 3 ? "Start Exploring &check;" : "Next &rarr;";
+}
+function stepTour(delta) {
+  if (tourStep + delta > 3) { closeTourModal(); return; }
+  setTourStep(tourStep + delta);
+}
+function openTourModal() {
+  setTourStep(0);
+  $("tourModal").classList.remove("hidden");
+}
+function closeTourModal() {
+  $("tourModal").classList.add("hidden");
+  try { localStorage.setItem("ta_tour_seen_v1", "1"); } catch (_) {}
+}
+
+function setGuideTab(tab) {
+  const isMath = tab !== "refs";
+  const bMath = $("guideTabMath"), bRefs = $("guideTabRefs");
+  const vMath = $("guideViewMath"), vRefs = $("guideViewRefs"), sw = $("guideSwitchBtn");
+  if (bMath) bMath.className = "touch-target min-h-[32px] rounded-lg font-semibold transition " + (isMath ? "tab-on" : "tab-off");
+  if (bRefs) bRefs.className = "touch-target min-h-[32px] rounded-lg font-semibold transition " + (!isMath ? "tab-on" : "tab-off");
+  if (vMath) vMath.classList.toggle("hidden", !isMath);
+  if (vRefs) vRefs.classList.toggle("hidden", isMath);
+  if (sw) sw.innerHTML = isMath ? "View Official Open Data Portals (13) &rarr;" : "&larr; Back to Mathematical Model &amp; Physics";
+}
+function openGuideModal() { setGuideTab("math"); $("guideModal").classList.remove("hidden"); }
 function closeGuideModal() { $("guideModal").classList.add("hidden"); }
 function toggleLeftSidebar() { appState.leftOpen = !appState.leftOpen; $("leftSidebar").style.transform = appState.leftOpen ? "translateX(0)" : "translateX(-115%)"; }
 function toggleRightSidebar() { appState.rightOpen = !appState.rightOpen; $("rightSidebar").style.transform = appState.rightOpen ? "translateX(0)" : "translateX(115%)"; $("expandRightBtn").classList.toggle("hidden", appState.rightOpen); }
 
 /* --------------------------------------------------------------------- init */
 window.addEventListener("resize", () => { TA.globe.resize(); if (earthMap) earthMap.invalidateSize(); if (planetMap) planetMap.invalidateSize(); });
-window.addEventListener("keydown", e => { if (e.key === "Escape") { closeSimulationModal(); closeChecklistModal(); closeGuideModal(); closeDataModal(); } });
+window.addEventListener("keydown", e => { if (e.key === "Escape") { closeSimulationModal(); closeChecklistModal(); closeGuideModal(); closeDataModal(); closeTourModal(); } });
 
 window.addEventListener("load", () => {
   $("f_lith").innerHTML = Object.keys(TA.lithologyLabels).map(k => `<option value="${k}" class="bg-[#1C1C1E]">${TA.lithologyLabels[k]}</option>`).join("");
@@ -706,5 +890,11 @@ window.addEventListener("load", () => {
     onStatus: (body, st) => showToast(st === "ready" ? `3D globe imagery loaded: ${body === "earth" ? "Earth" : bodyName(body)}` : "Globe imagery unavailable (check network)")
   });
   if (window.innerWidth < 900) { toggleLeftSidebar(); toggleRightSidebar(); }
+  // Pre-select the top-ranked site so the Environmental & UN SDG Impact HUD is immediately visible
+  const top = rankedSites()[0];
+  if (top) { appState.selectedId = top.id; appState.cardClosed = false; }
   applyView();
+  try {
+    if (!localStorage.getItem("ta_tour_seen_v1")) openTourModal();
+  } catch (_) {}
 });
