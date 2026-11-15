@@ -1,316 +1,155 @@
-/**
- * TerraAnalog - Client-Side Scientific Engine
- * Full implementation of the Gaussian similarity mathematics,
- * data coverage tracking, and reverse AI search parser.
- */
+/* =========================================================================
+ * TerraAnalog - Scoring, discard-funnel and hazard engine
+ * Every number shown in a marker or result card comes from evaluate().
+ * ========================================================================= */
+window.TA = window.TA || {};
 
-const SCIENTIFIC_ENGINE = {
-  // Scientific Tolerances (tau_i)
-  tolerances: {
-    slope_mean: 4.0,              // degrees
-    roughness: 0.20,              // index
-    elevation: 1200.0,            // meters
-    temperature_diurnal_range: 35.0, // Kelvin
-    thermal_inertia: 110.0,       // J m^-2 K^-1 s^-1/2
-    gravity_anomaly: 45.0,        // mGal
-    magnetic_anomaly: 150.0,      // nT
-    radiation_flux: 1.5,          // mSv/year (Earth) / relative scaling
-    iron_oxide_content: 4.5,      // wt%
-    silica_content: 6.0,          // wt%
-    albedo: 0.06                  // ratio
+TA.defaults = function () {
+  return {
+    thresholds: {
+      maxNdvi: 0.10, excludeWater: true, lithologyType: "all", maxSlope: 15, minRoughness: 0.35,
+      minThermalAmp: 15, maxHumidity: 30, maxElevation: 5000, minTraction: 0.30, checkEthics: true
+    },
+    // relative importance of each physical dimension (normalised at scoring time)
+    weights: { slope: 30, roughness: 20, thermal: 15, elevation: 10, traction: 15, humidity: 10 }
+  };
+};
+TA.state = TA.state || {};
+Object.assign(TA.state, TA.defaults());
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const gauss = (d, tau) => Math.exp(-0.5 * Math.pow(d / tau, 2));
+
+TA.engine = {
+  // Rover trafficability index (0..1) derived from terrain and surface moisture
+  traction(site) {
+    return clamp(1 - site.slope / 40 - Math.abs(site.roughness - 0.5) * 0.35 - (site.liquidWater ? 0.15 : 0) - site.relativeHumidity / 400, 0, 1);
   },
 
-  // Variable Importance Weights
-  weights: {
-    slope_mean: 0.20,
-    roughness: 0.15,
-    elevation: 0.05,
-    lithology_type: 0.25,
-    iron_oxide_content: 0.15,
-    silica_content: 0.10,
-    temperature_diurnal_range: 0.15,
-    thermal_inertia: 0.15,
-    gravity_anomaly: 0.10,
-    magnetic_anomaly: 0.10,
-    radiation_flux: 0.10,
-    albedo: 0.08
-  },
+  // Evaluate one site against the current thresholds, weights and target.
+  evaluate(site, targetKey) {
+    const th = TA.state.thresholds, w = TA.state.weights;
+    const target = TA.targets[targetKey] || TA.targets.shackleton;
+    const traction = this.traction(site);
+    const reasons = [];
 
-  // Categorical Lithology Compatibility Matrix
-  lithologyMatrix: {
-    basalt: { basalt: 1.0, anorthosite: 0.65, impact_melt: 0.80, clay_clastic: 0.30, evaporite_salar: 0.20, permafrost: 0.25 },
-    anorthosite: { anorthosite: 1.0, basalt: 0.65, impact_melt: 0.85, clay_clastic: 0.20, evaporite_salar: 0.15 },
-    impact_melt: { impact_melt: 1.0, basalt: 0.80, anorthosite: 0.85, clay_clastic: 0.40 },
-    clay_clastic: { clay_clastic: 1.0, evaporite_salar: 0.60, basalt: 0.30, impact_melt: 0.40 },
-    evaporite_salar: { evaporite_salar: 1.0, clay_clastic: 0.60, basalt: 0.20, permafrost: 0.45 },
-    permafrost: { permafrost: 1.0, evaporite_salar: 0.45, basalt: 0.25 }
-  },
+    // ---- Discard funnel: 4 cascading stages -------------------------------------
+    let s1 = true, s2, s3, s4;
+    if (site.ndvi > th.maxNdvi) { s1 = false; reasons.push(`NDVI ${site.ndvi.toFixed(2)} > ${th.maxNdvi.toFixed(2)} (biological alteration)`); }
+    if (th.excludeWater && site.liquidWater) { s1 = false; reasons.push("Active surface liquid water present"); }
+    s2 = s1;
+    if (th.lithologyType !== "all" && site.lithology !== th.lithologyType) { s2 = false; reasons.push(`Lithology '${TA.lithologyLabels[site.lithology] || site.lithology}' does not match filter`); }
+    s3 = s2;
+    if (site.slope > th.maxSlope) { s3 = false; reasons.push(`Slope ${site.slope.toFixed(1)}\u00B0 > ${th.maxSlope.toFixed(0)}\u00B0 (landing / traverse risk)`); }
+    if (site.roughness < th.minRoughness) { s3 = false; reasons.push(`Roughness ${site.roughness.toFixed(2)} < ${th.minRoughness.toFixed(2)} (smooth / eroded terrain)`); }
+    if (site.elevation > th.maxElevation) { s3 = false; reasons.push(`Elevation ${site.elevation} m > ${th.maxElevation} m limit`); }
+    if (traction < th.minTraction) { s3 = false; reasons.push(`Traction index ${traction.toFixed(2)} < ${th.minTraction.toFixed(2)} (rover mobility)`); }
+    s4 = s3;
+    if (site.relativeHumidity > th.maxHumidity) { s4 = false; reasons.push(`Humidity ${site.relativeHumidity.toFixed(0)}% > ${th.maxHumidity.toFixed(0)}% (oxidation risk)`); }
+    if (site.thermalAmplitude < th.minThermalAmp) { s4 = false; reasons.push(`Thermal swing ${site.thermalAmplitude.toFixed(0)}\u00B0C < ${th.minThermalAmp.toFixed(0)}\u00B0C (mild climate)`); }
 
-  getLithologySimilarity(typeA, typeB) {
-    const a = (typeA || "").trim().toLowerCase();
-    const b = (typeB || "").trim().toLowerCase();
-    if (!a || !b) return 0.5;
-    if (a === b) return 1.0;
-    if (this.lithologyMatrix[a] && this.lithologyMatrix[a][b] !== undefined) return this.lithologyMatrix[a][b];
-    if (this.lithologyMatrix[b] && this.lithologyMatrix[b][a] !== undefined) return this.lithologyMatrix[b][a];
-    return 0.30;
-  },
-
-  computeVariableSimilarity(key, earthVal, targetVal) {
-    if (earthVal === undefined || targetVal === undefined || earthVal === null || targetVal === null) {
-      return { score: 0.0, delta: 0.0, status: "MISSING" };
-    }
-
-    if (key === "lithology_type") {
-      const s = this.getLithologySimilarity(earthVal, targetVal);
-      return { score: s, delta: 0.0, status: "EVALUATED" };
-    }
-
-    const vE = parseFloat(earthVal);
-    const vT = parseFloat(targetVal);
-    if (isNaN(vE) || isNaN(vT)) return { score: 0.0, delta: 0.0, status: "INVALID" };
-
-    const delta = Math.abs(vE - vT);
-    const tau = this.tolerances[key] || 1.0;
-    
-    // Gaussian Kernel: s_i = exp(-0.5 * (d_i / tau_i)^2)
-    const exponent = -0.5 * Math.pow(delta / tau, 2);
-    const score = exponent > -25.0 ? Math.exp(exponent) : 0.0;
-
-    return { score, delta, status: "EVALUATED", tau };
-  },
-
-  evaluateCandidate(candidate, targetProfile) {
-    let weightedSimSum = 0.0;
-    let evaluatedWeightSum = 0.0;
-    let totalPossibleWeightSum = 0.0;
-
-    const breakdown = [];
-    const missingVars = [];
-
-    const dimAccum = {
-      geology: { simSum: 0, wSum: 0, totalW: 0 },
-      topography: { simSum: 0, wSum: 0, totalW: 0 },
-      geophysics: { simSum: 0, wSum: 0, totalW: 0 },
-      thermal: { simSum: 0, wSum: 0, totalW: 0 }
+    // ---- Gaussian similarity components, s_i = exp(-0.5 (d_i / tau_i)^2) ----------
+    // tolerances (tau) are tied to the active thresholds, so moving a slider moves the score
+    const comp = {
+      slope: gauss(site.slope - target.targetSlope, Math.max(2.5, th.maxSlope / 2.5)),
+      roughness: gauss(site.roughness - target.targetRough, 0.12 + (0.95 - th.minRoughness) * 0.2),
+      thermal: gauss(site.thermalAmplitude - Math.max(25, th.minThermalAmp), 12),
+      elevation: site.elevation <= th.maxElevation
+        ? 1 - 0.3 * clamp(Math.max(0, site.elevation) / th.maxElevation, 0, 1)
+        : 0.5 * gauss(site.elevation - th.maxElevation, 1000),
+      traction: traction >= th.minTraction
+        ? 0.7 + 0.3 * (traction - th.minTraction) / Math.max(0.05, 1 - th.minTraction)
+        : 0.7 * traction / Math.max(0.05, th.minTraction),
+      humidity: site.relativeHumidity <= th.maxHumidity
+        ? 1 - 0.4 * site.relativeHumidity / th.maxHumidity
+        : 0.5 * Math.exp(-(site.relativeHumidity - th.maxHumidity) / 15)
     };
+    let wSum = 0, acc = 0;
+    Object.keys(comp).forEach(k => { const wi = Math.max(0, w[k] || 0); wSum += wi; acc += wi * comp[k]; });
+    let physical = wSum > 0 ? acc / wSum : 0.5;
 
-    const categoryMap = {
-      slope_mean: "topography", roughness: "topography", elevation: "topography",
-      lithology_type: "geology", iron_oxide_content: "geology", silica_content: "geology", albedo: "geology",
-      temperature_diurnal_range: "thermal", thermal_inertia: "thermal",
-      gravity_anomaly: "geophysics", magnetic_anomaly: "geophysics", radiation_flux: "geophysics"
-    };
+    // ---- Environmental restrictions act as multiplicative penalties ------------------
+    let env = 1;
+    if (site.ndvi > th.maxNdvi) env *= 0.75;
+    if (th.excludeWater && site.liquidWater) env *= 0.70;
+    if (th.lithologyType !== "all") env *= (site.lithology === th.lithologyType ? 1 : 0.80);
+    else env *= (site.lithology === target.lithology ? 1 : 0.92);
+    if (th.checkEthics) env *= site.alertType === "high" ? 0.85 : (site.alertType === "medium" ? 0.93 : 1);
+    // data coverage < 100% lowers confidence slightly
+    env *= 0.9 + 0.1 * (site.coverage / 100);
 
-    for (const [key, weight] of Object.entries(this.weights)) {
-      totalPossibleWeightSum += weight;
-      const cat = categoryMap[key] || "geology";
-      dimAccum[cat].totalW += weight;
+    const score = Math.round(clamp(physical * env * 100, 5, 99));
+    const hazards = this.hazards(site, traction);
+    const critical = hazards.some(h => h.severity === "high");
 
-      const eVal = candidate.measurements[key];
-      const tVal = targetProfile.measurements[key];
+    // Marker / card status: red = protected or critical hazard, yellow = caution, green = high viability
+    let status = "viable";
+    if (th.checkEthics && site.alertType === "high") status = "hazard";
+    else if (critical) status = "hazard";
+    else if (reasons.length > 0 || score < 75 || (th.checkEthics && site.alertType === "medium")) status = "caution";
 
-      const res = this.computeVariableSimilarity(key, eVal, tVal);
-
-      if (res.status !== "EVALUATED") {
-        missingVars.push(key);
-        breakdown.push({
-          key, name: this.getFeatureName(key), category: cat,
-          earthVal: eVal, targetVal: tVal, status: "MISSING",
-          similarity: null, weight
-        });
-        continue;
-      }
-
-      const quality = 1.0; // Calibrated observation
-      const effWeight = weight * quality;
-      weightedSimSum += effWeight * res.score;
-      evaluatedWeightSum += effWeight;
-
-      dimAccum[cat].simSum += effWeight * res.score;
-      dimAccum[cat].wSum += effWeight;
-
-      breakdown.push({
-        key, name: this.getFeatureName(key), category: cat,
-        earthVal: eVal, targetVal: tVal, delta: res.delta, tau: res.tau,
-        similarity: Math.round(res.score * 1000) / 10,
-        weight, contribution: Math.round(effWeight * res.score * 1000) / 10,
-        status: "EVALUATED"
-      });
-    }
-
-    const physicalSimilarity = evaluatedWeightSum > 0 ? (weightedSimSum / evaluatedWeightSum) * 100.0 : 0.0;
-    const dataCoverage = totalPossibleWeightSum > 0 ? (evaluatedWeightSum / totalPossibleWeightSum) * 100.0 : 0.0;
-    const confidence = physicalSimilarity * (dataCoverage / 100.0);
-
-    const isProvisional = dataCoverage < 60.0;
-    let classification = "Low Match";
-    if (isProvisional) classification = "Provisional (Low Data)";
-    else if (physicalSimilarity >= 85.0) classification = "High Match (Coincidencia Alta)";
-    else if (physicalSimilarity >= 70.0) classification = "Moderate Match (Coincidencia Considerable)";
-    else if (physicalSimilarity >= 50.0) classification = "Partial Match (Coincidencia Parcial)";
-
-    // Operational feasibility
-    let feasibility = 85.0;
-    const slope = candidate.measurements.slope_mean || 0;
-    const roughness = candidate.measurements.roughness || 0;
-    if (slope > 20) feasibility -= 30;
-    else if (slope > 12) feasibility -= 15;
-    if (roughness > 0.4) feasibility -= 20;
-
-    // Dimension breakdown
-    const dimensionScores = {};
-    for (const [dim, acc] of Object.entries(dimAccum)) {
-      dimensionScores[dim] = acc.wSum > 0 ? Math.round((acc.simSum / acc.wSum) * 1000) / 10 : 0.0;
-    }
-
-    return {
-      candidateId: candidate.id,
-      candidateName: candidate.name,
-      country: candidate.country,
-      regionType: candidate.region_type,
-      lat: candidate.lat,
-      lon: candidate.lon,
-      elevation: candidate.elevation,
-      physicalSimilarity: Math.round(physicalSimilarity * 10) / 10,
-      dataCoverage: Math.round(dataCoverage * 10) / 10,
-      confidence: Math.round(confidence * 10) / 10,
-      operationalFeasibility: Math.max(10, Math.min(100, Math.round(feasibility))),
-      classification,
-      isProvisional,
-      environmentalRisk: candidate.env ? candidate.env.risk_level : "NO_DATA",
-      dimensionScores,
-      breakdown,
-      missingVars
-    };
+    return { passed: reasons.length === 0, reasons, score, traction, status, hazards, critical,
+             stage1: s1, stage2: s2, stage3: s3, stage4: s4, components: comp };
   },
 
-  getFeatureName(key) {
-    const names = {
-      slope_mean: "Mean Surface Slope",
-      roughness: "Roughness Index",
-      elevation: "Elevation / Relief",
-      lithology_type: "Lithology / Rock Type",
-      iron_oxide_content: "Iron Oxide Content",
-      silica_content: "Silica (SiO2)",
-      temperature_diurnal_range: "Diurnal Temp Range",
-      thermal_inertia: "Thermal Inertia",
-      gravity_anomaly: "Bouguer Gravity Anomaly",
-      magnetic_anomaly: "Magnetic Field Anomaly",
-      radiation_flux: "Surface Radiation Flux",
-      albedo: "Optical Albedo"
-    };
-    return names[key] || key;
+  // ---- Area hazards: indicative footprints derived from site attributes ----------------
+  hazards(site, traction) {
+    const th = TA.state.thresholds, list = [];
+    if (site.alertType === "high" || site.alertType === "medium") {
+      const high = site.alertType === "high";
+      list.push({ kind: "protected", severity: high ? "high" : "medium", radiusKm: high ? 55 : 35, offset: [0, 0],
+        title: high ? "Protected area (WDPA)" : "Managed reserve (WDPA)",
+        text: `${site.protectedName || site.alertLabel}. ${high
+          ? "Strictly protected: sampling and mechanical traverses require a permit and a non-invasion protocol (SDG 15)."
+          : "Managed zone: restricted-access corridors and low-impact operations only."}` });
+    }
+    if (site.slope >= 9 || site.slope > th.maxSlope) {
+      list.push({ kind: "slope", severity: site.slope > th.maxSlope ? "high" : "medium", radiusKm: 28, offset: [0.45, 0.55],
+        title: "Steep-slope zone",
+        text: `Mean slope ${site.slope.toFixed(1)}\u00B0 (limit ${th.maxSlope.toFixed(0)}\u00B0). Landing and rover traverse risk; rollover margin is reduced.` });
+    }
+    if (site.liquidWater || site.ndvi > 0.10) {
+      list.push({ kind: "fragile", severity: (site.liquidWater && th.excludeWater) ? "high" : "medium", radiusKm: 24, offset: [-0.5, -0.4],
+        title: "Fragile terrain / biological activity",
+        text: `${site.liquidWater ? "Active surface water. " : ""}NDVI ${site.ndvi.toFixed(2)}. Microbial mats and living communities are vulnerable to contamination (planetary-protection and SDG 14 / 15 concern).` });
+    }
+    if (site.liquidWater === false && site.relativeHumidity > th.maxHumidity && site.relativeHumidity >= 50) {
+      list.push({ kind: "humidity", severity: "medium", radiusKm: 20, offset: [0.1, -0.7], title: "High-humidity zone",
+        text: `Relative humidity ${site.relativeHumidity.toFixed(0)}%: corrosion and dust-adhesion risk for instruments.` });
+    }
+    return list;
   },
 
-  // Deterministic NLP query parser for Reverse AI Search
-  parseReverseQuery(queryText) {
-    const q = (queryText || "").toLowerCase();
-    const criteria = {
-      rawQuery: queryText,
-      lithology: null,
-      terrain: null,
-      body: null,
-      slopeMax: null,
-      ironMin: null,
-      roughnessMax: null,
-      matchedTokens: []
-    };
-
-    // Body
-    if (q.includes("moon") || q.includes("luna") || q.includes("lunar")) { criteria.body = "Moon"; criteria.matchedTokens.push("Moon"); }
-    if (q.includes("mars") || q.includes("marte") || q.includes("marciano")) { criteria.body = "Mars"; criteria.matchedTokens.push("Mars"); }
-
-    // Lithology
-    if (q.includes("basalt") || q.includes("basalto") || q.includes("basáltico")) { criteria.lithology = "basalt"; criteria.matchedTokens.push("Basalt"); }
-    else if (q.includes("anorthosite") || q.includes("anortosita")) { criteria.lithology = "anorthosite"; criteria.matchedTokens.push("Anorthosite"); }
-    else if (q.includes("clay") || q.includes("arcilla") || q.includes("smectite")) { criteria.lithology = "clay_clastic"; criteria.matchedTokens.push("Clay/Smectite"); }
-    else if (q.includes("salar") || q.includes("evaporite") || q.includes("salt") || q.includes("salino")) { criteria.lithology = "evaporite_salar"; criteria.matchedTokens.push("Evaporite/Salar"); }
-    else if (q.includes("crater") || q.includes("cráter") || q.includes("breccia") || q.includes("impact")) { criteria.lithology = "impact_melt"; criteria.matchedTokens.push("Impact Melt"); }
-    else if (q.includes("polar") || q.includes("permafrost") || q.includes("ice") || q.includes("hielo")) { criteria.lithology = "permafrost"; criteria.matchedTokens.push("Permafrost"); }
-
-    // Terrain
-    if (q.includes("desert") || q.includes("desierto") || q.includes("dunes") || q.includes("dunas")) { criteria.terrain = "Desert"; criteria.matchedTokens.push("Desert"); }
-    else if (q.includes("volcano") || q.includes("volcán") || q.includes("volcan") || q.includes("caldera")) { criteria.terrain = "Volcanic"; criteria.matchedTokens.push("Volcanic"); }
-    else if (q.includes("crater") || q.includes("cráter")) { criteria.terrain = "Crater"; criteria.matchedTokens.push("Crater"); }
-    else if (q.includes("cave") || q.includes("cueva") || q.includes("lava tube") || q.includes("tubo")) { criteria.terrain = "Lava_Tube"; criteria.matchedTokens.push("Lava Tube"); }
-
-    // Slopes
-    const slopeMatch = q.match(/(?:slope|pendiente)\s*(?:<|<=|menor a|under)?\s*(\d+(?:\.\d+)?)/);
-    if (slopeMatch) {
-      criteria.slopeMax = parseFloat(slopeMatch[1]);
-      criteria.matchedTokens.push(`Slope <= ${criteria.slopeMax}°`);
-    } else if (q.includes("baja pendiente") || q.includes("gentle slope") || q.includes("flat") || q.includes("plano")) {
-      criteria.slopeMax = 10.0;
-      criteria.matchedTokens.push("Gentle Slope (<=10°)");
+  // Deterministic irregular polygon around a centre (lat/lon in degrees)
+  polygon(site, hz) {
+    let seed = (site.id * 9301 + hz.kind.length * 49297) % 233280;
+    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const n = 16, pts = [];
+    const kmLat = 111.0, kmLon = 111.0 * Math.max(0.2, Math.cos(site.lat * Math.PI / 180));
+    const cLat = site.lat + (hz.offset[1] * hz.radiusKm) / kmLat;
+    const cLon = site.lon + (hz.offset[0] * hz.radiusKm) / kmLon;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, r = hz.radiusKm * (0.72 + rnd() * 0.5);
+      pts.push([clamp(cLat + (Math.sin(a) * r) / kmLat, -89.5, 89.5), cLon + (Math.cos(a) * r) / kmLon]);
     }
-
-    // Iron Oxide
-    const ironMatch = q.match(/(?:iron|hierro|fe)\s*(?:>|>=|mayor a)?\s*(\d+(?:\.\d+)?)/);
-    if (ironMatch) {
-      criteria.ironMin = parseFloat(ironMatch[1]);
-      criteria.matchedTokens.push(`Iron >= ${criteria.ironMin}%`);
-    } else if (q.includes("alto hierro") || q.includes("high iron") || q.includes("hematite") || q.includes("hematita")) {
-      criteria.ironMin = 12.0;
-      criteria.matchedTokens.push("High Iron (>=12%)");
-    }
-
-    return criteria;
+    return pts;
   },
 
-  rankCandidatesByReverseQuery(criteria, candidates) {
-    return candidates.map(c => {
-      let score = 0;
-      let maxScore = 0;
-      const reasons = [];
+  // Funnel counts for a site list
+  funnel(sites, targetKey) {
+    const c = { total: sites.length, s1: 0, s2: 0, s3: 0, s4: 0 };
+    sites.forEach(s => { const e = this.evaluate(s, targetKey); if (e.stage1) c.s1++; if (e.stage2) c.s2++; if (e.stage3) c.s3++; if (e.stage4) c.s4++; });
+    return c;
+  },
 
-      if (criteria.lithology) {
-        maxScore += 40;
-        const sim = this.getLithologySimilarity(c.measurements.lithology_type, criteria.lithology);
-        score += sim * 40;
-        reasons.push(`Lithology: ${c.measurements.lithology_type} (${Math.round(sim*100)}% match with ${criteria.lithology})`);
+  // Best live match for a mineral signature among the given sites
+  spectralMatch(sig, sites, targetKey) {
+    let best = 0, n = 0;
+    sites.forEach(s => {
+      if (s.minerals.some(m => sig.keywords.some(k => m.toLowerCase().includes(k)))) {
+        n++; best = Math.max(best, this.evaluate(s, targetKey).score);
       }
-
-      if (criteria.terrain) {
-        maxScore += 25;
-        if (c.region_type.toLowerCase() === criteria.terrain.toLowerCase()) {
-          score += 25;
-          reasons.push(`Terrain: exact match with ${criteria.terrain}`);
-        } else {
-          reasons.push(`Terrain: candidate is ${c.region_type}`);
-        }
-      }
-
-      if (criteria.slopeMax !== null) {
-        maxScore += 20;
-        const slope = c.measurements.slope_mean || 0;
-        if (slope <= criteria.slopeMax) {
-          score += 20;
-          reasons.push(`Slope: ${slope}° satisfies <= ${criteria.slopeMax}°`);
-        } else {
-          score += Math.max(0, 20 - (slope - criteria.slopeMax) * 2);
-          reasons.push(`Slope: ${slope}° exceeds preferred ${criteria.slopeMax}°`);
-        }
-      }
-
-      if (criteria.ironMin !== null) {
-        maxScore += 15;
-        const fe = c.measurements.iron_oxide_content || 0;
-        if (fe >= criteria.ironMin) {
-          score += 15;
-          reasons.push(`Iron: ${fe}% satisfies >= ${criteria.ironMin}%`);
-        } else {
-          score += criteria.ironMin > 0 ? (fe / criteria.ironMin) * 15 : 15;
-          reasons.push(`Iron: ${fe}% is lower than ${criteria.ironMin}%`);
-        }
-      }
-
-      const relevance = maxScore > 0 ? Math.round((score / maxScore) * 1000) / 10 : 50.0;
-      return {
-        candidate: c,
-        relevance,
-        reasons
-      };
-    }).sort((a, b) => b.relevance - a.relevance);
+    });
+    return { best, count: n };
   }
 };

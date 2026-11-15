@@ -122,8 +122,8 @@ class ReverseSearchEngine:
             extracted_filters["slope_max"] = 10.0
             extracted_filters["matched_keywords"].append("flat/gentle slope")
             
-        # Iron oxide (e.g., "alto hierro", "high iron", "iron > 10")
-        iron_match = re.search(r"(?:iron|hierro|fe|feo|fe2o3)\s*(?:>|>=|mayor a|more than)?\s*(\d+(?:\.\d+)?)\s*(?:%|wt%)?", q_lower)
+        # Iron oxide (e.g., "alto hierro", "high iron", "iron > 10", "iron oxide > 12%")
+        iron_match = re.search(r"(?:iron\s+oxide|iron|hierro|fe|feo|fe2o3)\s*(?:>|>=|mayor a|more than)?\s*(\d+(?:\.\d+)?)\s*(?:%|wt%)?", q_lower)
         if iron_match:
             extracted_filters["iron_oxide_min"] = float(iron_match.group(1))
             extracted_filters["matched_keywords"].append(iron_match.group(0))

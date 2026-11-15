@@ -1,1566 +1,710 @@
-﻿/**
- * TerraAnalog - Main Frontend Application Orchestrator (Enhanced v2.0)
- * Manages Leaflet GIS map, fallback canvas world map, multi-criteria filtering,
- * interactive category pills, drawer collapse, and AR simulator telemetry.
- */
-
-class TerraAnalogApp {
-  constructor() {
-    this.currentBody = "Mars";
-    this.currentTarget = null;
-    this.selectedCandidate = null;
-    this.activeCategory = "ALL";
-    this.evaluationResults = [];
-    this.map = null;
-    this.markers = {};
-    this.activeBboxLayer = null;
-    this.arSimulator = null;
-    this.globe = null;
-    this.isGlobeView = false;
-    this.currentTutStep = 1;
-    this.spotlightFilterText = "";
-    this.checklistState = {};
-    this.comparisonList = [];
-    
-    // Basemap layers
-    this.currentBasemap = "dark";
-    this.tileLayers = {};
-
-    this.init();
-  }
-
-  init() {
-    this.populateTargetSelector();
-    this.populateEventRegionSelector();
-    this.initMap();
-    this.initGlobe();
-    this.initEventListeners();
-    this.initArSimulator();
-    this.initTutorialController();
-    this.initDocsTabs();
-    this.initChecklistController();
-    this.runAnalysis();
-    this.renderEventsTable();
-  }
-
-  populateTargetSelector() {
-    const sel = document.getElementById("target-profile-select");
-    if (!sel) return;
-    sel.innerHTML = "";
-
-    const availableTargets = TERRA_DATA.targets.filter(t => t.body === this.currentBody);
-    availableTargets.forEach(t => {
-      const opt = document.createElement("option");
-      opt.value = t.id;
-      opt.textContent = `${t.name} (${t.env})`;
-      sel.appendChild(opt);
-    });
-
-    this.currentTarget = availableTargets[0] || null;
-    this.updateTargetSummary();
-  }
-
-  populateEventRegionSelector() {
-    const sel = document.getElementById("evt-region-select");
-    if (!sel) return;
-    sel.innerHTML = "";
-    TERRA_DATA.candidates.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = `${c.name} (${c.country})`;
-      sel.appendChild(opt);
-    });
-  }
-
-  updateTargetSummary() {
-    if (!this.currentTarget) return;
-    const badge = document.getElementById("target-context-badge");
-    if (badge) badge.textContent = this.currentTarget.context;
-  }
-
-  initMap() {
-    // Check for dedicated map canvas container or fallback to viewport
-    const mapTarget = document.getElementById("leaflet-map-canvas") || document.getElementById("map-viewport");
-    if (!mapTarget) return;
-
-    if (typeof L === "undefined") {
-      console.warn("Leaflet library not loaded (offline or CDN blocked). Activating Enhanced Vector Canvas Fallback World Map.");
-      this.initCanvasFallbackMap();
-      return;
-    }
-
-    try {
-      // Initialize Leaflet Map centered on world view (Center: [20.0, 0.0], Zoom: 2, Bounds: Global)
-      this.map = L.map(mapTarget, {
-        center: [20.0, 0.0],
-        zoom: 2,
-        minZoom: 1.5,
-        maxZoom: 18,
-        zoomControl: false,
-        attributionControl: true
-      });
-
-      L.control.zoom({ position: "bottomright" }).addTo(this.map);
-
-      // Multi-Provider Open Cartography Tile Layers (Section 4.3 & 4.4)
-      // 1. Dark Matter Tile Layer (CartoDB)
-      this.tileLayers.dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> & NASA ESDIS',
-        subdomains: 'abcd',
-        maxZoom: 19
-      });
-
-      // 2. High-Resolution Satellite Tile Layer (Esri World Imagery)
-      this.tileLayers.satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        attribution: '&copy; Esri, Maxar, Earthstar Geographics, CNES/Airbus DS, USGS, AeroGRID, IGN, NASA',
-        maxZoom: 18
-      });
-
-      // 3. OpenStreetMap Universal Global Map
-      this.tileLayers.osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      });
-
-      // 4. Topographic / Shaded Relief (Esri World Topo)
-      this.tileLayers.topo = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
-        attribution: '&copy; Esri, HERE, Garmin, Intermap, increment P Corp., GEBCO, USGS, FAO, NPS, NRCAN, GeoBase, IGN',
-        maxZoom: 18
-      });
-
-      // Add default basemap
-      this.tileLayers.dark.addTo(this.map);
-      this.currentBasemap = "dark";
-
-      // Scientific Overlay Layers Container (Section 4.4)
-      this.scientificLayers = {
-        volcanic: L.layerGroup().addTo(this.map),
-        crater: L.layerGroup().addTo(this.map),
-        minerals: L.layerGroup().addTo(this.map),
-        slope_hazard: L.layerGroup().addTo(this.map),
-        roughness: L.layerGroup().addTo(this.map),
-        dem: L.layerGroup(),
-        wdpa: L.layerGroup().addTo(this.map),
-        ramsar: L.layerGroup().addTo(this.map),
-        gravity: L.layerGroup().addTo(this.map),
-        magnetism: L.layerGroup().addTo(this.map),
-        thermal: L.layerGroup().addTo(this.map)
-      };
-
-      this.populateScientificOverlays();
-
-      // Track cursor coordinates in HUD
-      this.map.on("mousemove", (e) => {
-        const latEl = document.getElementById("hud-lat");
-        const lonEl = document.getElementById("hud-lon");
-        if (latEl && lonEl) {
-          latEl.textContent = e.latlng.lat.toFixed(3);
-          lonEl.textContent = e.latlng.lng.toFixed(3);
-        }
-      });
-
-      // Crucial: Invalidate size after layout rendering and resize
-      setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 100);
-      setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 400);
-
-      window.addEventListener("resize", () => {
-        if (this.map) this.map.invalidateSize();
-      });
-
-    } catch (err) {
-      console.warn("Error initializing Leaflet map, falling back to Canvas Map:", err);
-      this.initCanvasFallbackMap();
-    }
-  }
-
-  switchBasemap(type) {
-    if (!this.map || !this.tileLayers) return;
-    Object.values(this.tileLayers).forEach(layer => {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-    });
-
-    if (this.tileLayers[type]) {
-      this.tileLayers[type].addTo(this.map);
-      this.currentBasemap = type;
-      console.log(`Switched basemap to: ${type}`);
-    }
-  }
-
-  toggleBasemap() {
-    if (!this.map || !this.tileLayers) return;
-    if (this.currentBasemap === "dark") {
-      this.switchBasemap("satellite");
-    } else if (this.currentBasemap === "satellite") {
-      this.switchBasemap("osm");
-    } else if (this.currentBasemap === "osm") {
-      this.switchBasemap("topo");
-    } else {
-      this.switchBasemap("dark");
-    }
-  }
-
-  toggleScientificLayer(layerKey, enabled) {
-    if (!this.map || !this.scientificLayers || !this.scientificLayers[layerKey]) return;
-    const layer = this.scientificLayers[layerKey];
-    if (enabled && !this.map.hasLayer(layer)) {
-      layer.addTo(this.map);
-    } else if (!enabled && this.map.hasLayer(layer)) {
-      this.map.removeLayer(layer);
-    }
-  }
-
-  populateScientificOverlays() {
-    if (!this.map || typeof L === "undefined") return;
-
-    TERRA_DATA.candidates.forEach(c => {
-      // 1. Environmental: WDPA Protected Area Exclusion Polygons (SDG 15)
-      if (c.env && c.env.overlaps_wdpa && c.bbox) {
-        const [minLon, minLat, maxLon, maxLat] = c.bbox;
-        const wdpaPoly = L.rectangle([[minLat, minLon], [maxLat, maxLon]], {
-          color: c.env.risk_level === 'RESTRICTED_REVIEW' ? '#f43f5e' : '#f59e0b',
-          weight: 1.5,
-          dashArray: '4, 4',
-          fillColor: c.env.risk_level === 'RESTRICTED_REVIEW' ? '#f43f5e' : '#f59e0b',
-          fillOpacity: 0.12
-        }).bindTooltip(`<b>WDPA Protected:</b> ${c.env.pa_name || c.name}<br><i>IUCN: ${c.env.iucn || 'Unclassified'}</i>`, { sticky: true });
-        this.scientificLayers.wdpa.addLayer(wdpaPoly);
-      }
-
-      // 2. Topographic: Slope Hazard (> 15°)
-      if (c.measurements && c.measurements.slope_mean > 10) {
-        const slopeCircle = L.circle([c.lat, c.lon], {
-          radius: 45000,
-          color: '#fbbf24',
-          weight: 1,
-          fillColor: '#fbbf24',
-          fillOpacity: 0.08
-        }).bindTooltip(`<b>Slope Gradient:</b> ${c.measurements.slope_mean}° (Topographic Hazard)`, { sticky: true });
-        this.scientificLayers.slope_hazard.addLayer(slopeCircle);
-      }
-
-      // 3. Geophysical: Bouguer Gravity Anomaly Overlay
-      if (c.measurements && typeof c.measurements.gravity_anomaly === 'number') {
-        const gravColor = c.measurements.gravity_anomaly > 0 ? '#38bdf8' : '#a855f7';
-        const gravCircle = L.circle([c.lat, c.lon], {
-          radius: 35000,
-          color: gravColor,
-          weight: 1,
-          dashArray: '3, 3',
-          fillColor: gravColor,
-          fillOpacity: 0.05
-        }).bindTooltip(`<b>Bouguer Gravity:</b> ${c.measurements.gravity_anomaly} mGal`, { sticky: true });
-        this.scientificLayers.gravity.addLayer(gravCircle);
-      }
-    });
-  }
-
-  zoomToWorld() {
-    if (this.map) {
-      this.map.flyTo([20.0, 0.0], 2, { duration: 1.2 });
-    }
-  }
-
-  fitAllCandidates() {
-    if (!this.map) return;
-    const latlngs = TERRA_DATA.candidates.map(c => [c.lat, c.lon]);
-    if (latlngs.length > 0) {
-      this.map.fitBounds(L.latLngBounds(latlngs), { padding: [50, 50], maxZoom: 6 });
-    }
-  }
-
-  /* Canvas Fallback World Map (Offline Mode) */
-  initCanvasFallbackMap() {
-    const canvas = document.getElementById("fallback-map-canvas");
-    if (!canvas) return;
-    canvas.style.display = "block";
-    const ctx = canvas.getContext("2d");
-
-    const renderCanvas = () => {
-      const width = canvas.width = canvas.parentElement.clientWidth || 800;
-      const height = canvas.height = canvas.parentElement.clientHeight || 500;
-
-      // Dark space background
-      ctx.fillStyle = "#040810";
-      ctx.fillRect(0, 0, width, height);
-
-      // Lat/Lon Grid lines
-      ctx.strokeStyle = "rgba(34, 50, 73, 0.4)";
-      ctx.lineWidth = 1;
-
-      // Meridians
-      for (let lon = -180; lon <= 180; lon += 30) {
-        const x = ((lon + 180) / 360) * width;
-        ctx.beginPath();
-        ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-      }
-      // Parallels
-      for (let lat = -90; lat <= 90; lat += 30) {
-        const y = ((90 - lat) / 180) * height;
-        ctx.beginPath();
-        ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
-      }
-
-      // Simplified continent shapes
-      ctx.fillStyle = "rgba(20, 31, 48, 0.85)";
-      ctx.strokeStyle = "rgba(56, 189, 248, 0.3)";
-      ctx.lineWidth = 1;
-
-      const continents = [
-        // North America
-        [[-165, 65], [-140, 70], [-95, 75], [-60, 60], [-80, 25], [-105, 20], [-120, 35], [-165, 60]],
-        // South America
-        [[-80, 10], [-50, -5], [-35, -10], [-55, -40], [-70, -55], [-75, -20], [-80, 10]],
-        // Eurasia
-        [[-10, 35], [20, 40], [40, 60], [100, 70], [170, 65], [140, 35], [105, 20], [75, 10], [50, 25], [30, 30], [-10, 35]],
-        // Africa
-        [[-15, 30], [30, 30], [50, 12], [40, -10], [30, -35], [15, -34], [10, 5], [-15, 15], [-15, 30]],
-        // Australia
-        [[115, -20], [145, -15], [150, -35], [130, -35], [115, -30], [115, -20]]
-      ];
-
-      continents.forEach(cont => {
-        ctx.beginPath();
-        cont.forEach(([lon, lat], idx) => {
-          const x = ((lon + 180) / 360) * width;
-          const y = ((90 - lat) / 180) * height;
-          if (idx === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        });
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      });
-
-      // Plot candidate points
-      TERRA_DATA.candidates.forEach(c => {
-        const x = ((c.lon + 180) / 360) * width;
-        const y = ((90 - c.lat) / 180) * height;
-
-        ctx.fillStyle = "#38bdf8";
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.fillStyle = "#94a3b8";
-        ctx.font = "10px sans-serif";
-        ctx.fillText(c.name, x + 8, y + 3);
-      });
-    };
-
-    renderCanvas();
-    window.addEventListener("resize", renderCanvas);
-
-    canvas.addEventListener("click", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      const width = canvas.width;
-      const height = canvas.height;
-
-      TERRA_DATA.candidates.forEach(c => {
-        const x = ((c.lon + 180) / 360) * width;
-        const y = ((90 - c.lat) / 180) * height;
-        const dist = Math.hypot(clickX - x, clickY - y);
-        if (dist < 10) {
-          this.selectCandidate(c.id);
-        }
-      });
-    });
-  }
-
-  renderAppleMatchRing(score, size = 42) {
-    const radius = size * 0.38;
-    const circumference = 2 * Math.PI * radius;
-    const clampedScore = Math.max(0, Math.min(100, score || 0));
-    const offset = circumference - (circumference * clampedScore) / 100;
-    let ringColor = "#ff453a"; // Apple System Red
-    if (clampedScore >= 85) ringColor = "#34c759";      // Apple System Green
-    else if (clampedScore >= 70) ringColor = "#0a84ff"; // Apple System Blue
-    else if (clampedScore >= 50) ringColor = "#ff9f0a"; // Apple System Orange
-
-    return `
-      <div class="apple-match-ring-wrapper" style="width: ${size}px; height: ${size}px;" title="Physical Similarity Score: ${clampedScore}%">
-        <svg class="apple-match-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-          <circle class="apple-match-ring-bg" cx="${size / 2}" cy="${size / 2}" r="${radius}" />
-          <circle class="apple-match-ring-fill" cx="${size / 2}" cy="${size / 2}" r="${radius}"
-            style="stroke-dasharray: ${circumference.toFixed(1)}; stroke-dashoffset: ${offset.toFixed(1)}; stroke: ${ringColor}; stroke-width: ${Math.max(3, size * 0.09)}px;" />
-        </svg>
-        <span class="apple-match-ring-text" style="font-size: ${Math.round(size * 0.25)}px;">${Math.round(clampedScore)}%</span>
-      </div>
-    `;
-  }
-
-  runAnalysis() {
-    if (!this.currentTarget) return;
-
-    // Run scientific matching for all candidates
-    this.evaluationResults = TERRA_DATA.candidates.map(candidate => {
-      return SCIENTIFIC_ENGINE.evaluateCandidate(candidate, this.currentTarget);
-    });
-
-    // 1. Filter by Preset Filter Bar (Apple Segmented Capsule)
-    let displayResults = [...this.evaluationResults];
-    if (this.activeCategory === "HIGH_MATCH") {
-      displayResults = displayResults.filter(r => r.physicalSimilarity >= 70.0);
-    } else if (this.activeCategory === "ECO_SAFE") {
-      displayResults = displayResults.filter(r => r.environmentalRisk !== "RESTRICTED_REVIEW");
-    } else if (this.activeCategory !== "ALL") {
-      displayResults = displayResults.filter(r => r.regionType.toLowerCase() === this.activeCategory.toLowerCase());
-    }
-
-    // 2. Filter by Apple Spotlight Search Input (if active)
-    if (this.spotlightFilterText && this.spotlightFilterText.trim()) {
-      const q = this.spotlightFilterText.trim().toLowerCase();
-      displayResults = displayResults.filter(r => 
-        r.candidateName.toLowerCase().includes(q) || 
-        r.country.toLowerCase().includes(q) ||
-        r.regionType.toLowerCase().includes(q)
-      );
-    }
-
-    // 3. Filter by Physical Sliders (Left Drawer)
-    const sliderSlope = document.getElementById("slider-filter-slope");
-    if (sliderSlope) {
-      const maxSlope = parseFloat(sliderSlope.value);
-      displayResults = displayResults.filter(r => {
-        const cand = TERRA_DATA.candidates.find(c => c.id === r.candidateId);
-        return cand && (cand.measurements.slope_mean || 0) <= maxSlope;
-      });
-    }
-
-    const sliderCoverage = document.getElementById("slider-filter-coverage");
-    if (sliderCoverage) {
-      const minCoverage = parseFloat(sliderCoverage.value);
-      displayResults = displayResults.filter(r => r.dataCoverage >= minCoverage);
-    }
-
-    const selRegionType = document.getElementById("filter-region-type");
-    if (selRegionType && selRegionType.value !== "ALL") {
-      displayResults = displayResults.filter(r => r.regionType.toLowerCase() === selRegionType.value.toLowerCase());
-    }
-
-    // Sort by physical similarity descending
-    displayResults.sort((a, b) => b.physicalSimilarity - a.physicalSimilarity);
-
-    this.renderCandidateRanking(displayResults);
-    this.updateMapMarkers(displayResults);
-
-    // Update sites count in HUD
-    const hudCount = document.getElementById("hud-sites-count");
-    if (hudCount) hudCount.textContent = `${displayResults.length} / ${TERRA_DATA.candidates.length}`;
-
-    // Select top candidate if none selected
-    if (!this.selectedCandidate && displayResults.length > 0) {
-      this.selectCandidate(displayResults[0].candidateId);
-    } else if (this.selectedCandidate) {
-      this.selectCandidate(this.selectedCandidate.id);
-    }
-  }
-
-  updateMapMarkers(filteredResults) {
-    if (!this.map || typeof L === "undefined") return;
-
-    const resultsToDisplay = filteredResults || this.evaluationResults;
-
-    // Remove existing markers
-    Object.values(this.markers).forEach(m => this.map.removeLayer(m));
-    this.markers = {};
-
-    resultsToDisplay.forEach(res => {
-      const score = res.physicalSimilarity;
-      let markerColor = "#f43f5e"; // Low
-      if (score >= 85) markerColor = "#10b981";      // High (Emerald)
-      else if (score >= 70) markerColor = "#38bdf8"; // Moderate (Cyan)
-      else if (score >= 50) markerColor = "#f59e0b"; // Partial (Amber)
-
-      const markerHtml = `
-        <div style="
-          width: 30px; height: 30px; border-radius: 50%;
-          background: ${markerColor}; border: 2px solid #ffffff;
-          box-shadow: 0 0 14px ${markerColor};
-          display: flex; align-items: center; justify-content: center;
-          font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 800; color: #080c14;
-          cursor: pointer; transition: transform 0.2s ease;
-        ">${Math.round(score)}</div>
-      `;
-
-      const icon = L.divIcon({
-        className: 'custom-analog-marker',
-        html: markerHtml,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-
-      const marker = L.marker([res.lat, res.lon], { icon }).addTo(this.map);
-
-      marker.bindPopup(`
-        <div style="font-family: var(--font-sans, sans-serif); min-width: 200px; color: #111;">
-          <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700;">${res.candidateName}</h4>
-          <p style="margin: 0 0 6px 0; font-size: 11px; color: #555;">${res.country} &bull; ${res.regionType} &bull; ${res.elevation}m</p>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-weight: 800; font-size: 13px; color: ${markerColor};">${res.physicalSimilarity}% Match</span>
-            <span style="font-size: 11px; color: #666;">Coverage: ${res.dataCoverage}%</span>
-          </div>
-          <button onclick="window.terraApp.selectCandidate('${res.candidateId}')" style="
-            width: 100%; background: #0284c7; color: white; border: none; padding: 6px;
-            border-radius: 5px; font-size: 11px; font-weight: 600; cursor: pointer;
-          ">Inspect Scientific Data</button>
-        </div>
-      `);
-
-      marker.on("click", () => {
-        this.selectCandidate(res.candidateId);
-      });
-
-      this.markers[res.candidateId] = marker;
-    });
-  }
-
-  renderCandidateRanking(displayList) {
-    const listEl = document.getElementById("ranking-list");
-    if (!listEl) return;
-    listEl.innerHTML = "";
-
-    const results = displayList || this.evaluationResults;
-
-    if (results.length === 0) {
-      listEl.innerHTML = `
-        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim); font-size: 0.8rem;">
-          <div style="font-size: 1.5rem; margin-bottom: 6px;">🔍</div>
-          No se encontraron análogos con los filtros seleccionados.
-        </div>
-      `;
-      return;
-    }
-
-    results.forEach((res, idx) => {
-      const card = document.createElement("div");
-      card.className = `candidate-card ${this.selectedCandidate && this.selectedCandidate.id === res.candidateId ? 'active' : ''}`;
-      card.onclick = () => this.selectCandidate(res.candidateId);
-
-      let ecoClass = "eco-low";
-      if (res.environmentalRisk === "RESTRICTED_REVIEW") ecoClass = "eco-restricted";
-      else if (res.environmentalRisk === "HIGH_ALERT") ecoClass = "eco-high";
-      else if (res.environmentalRisk === "MEDIUM_ALERT") ecoClass = "eco-medium";
-
-      card.innerHTML = `
-        <div class="card-header" style="align-items: center; gap: 8px;">
-          <div style="flex: 1; min-width: 0;">
-            <div class="card-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              #${idx + 1} ${res.candidateName}
-            </div>
-            <div class="card-meta">${res.country} &bull; ${res.regionType} &bull; ${res.elevation}m</div>
-          </div>
-          ${this.renderAppleMatchRing(res.physicalSimilarity, 40)}
-        </div>
-        <div style="display: flex; gap: 0.4rem; align-items: center; font-size: 0.70rem; margin-top: 6px;">
-          <span style="color: var(--text-dim);">Data Coverage: ${res.dataCoverage}%</span>
-          ${res.isProvisional ? '<span class="provisional-badge" style="font-size: 0.65rem;">Provisional</span>' : ''}
-          <span style="margin-left: auto;" class="eco-pill ${ecoClass}">${res.environmentalRisk}</span>
-          <button class="apple-locate-btn" onclick="event.stopPropagation(); window.terraApp.locateCandidateOnMap('${res.candidateId}')" title="Centrar y enfocar en el mapa/globo">
-            🔍 Locate
-          </button>
-        </div>
-      `;
-
-      listEl.appendChild(card);
-    });
-  }
-
-  selectCandidate(candidateId) {
-    const candidate = TERRA_DATA.candidates.find(c => c.id === candidateId);
-    if (!candidate) return;
-    this.selectedCandidate = candidate;
-
-    // Highlight in ranking list
-    document.querySelectorAll(".candidate-card").forEach(el => el.classList.remove("active"));
-    const cards = document.querySelectorAll(".candidate-card");
-    this.evaluationResults.forEach((r, idx) => {
-      if (r.candidateId === candidateId && cards[idx]) {
-        cards[idx].classList.add("active");
-        cards[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    });
-
-    // Pan map to candidate and draw bounding box
-    if (this.map && typeof L !== "undefined") {
-      this.map.flyTo([candidate.lat, candidate.lon], 6, { duration: 1.2 });
-      if (this.markers[candidateId]) {
-        this.markers[candidateId].openPopup();
-      }
-
-      // Draw bounding box polygon
-      if (this.activeBboxLayer) {
-        this.map.removeLayer(this.activeBboxLayer);
-      }
-      if (candidate.bbox && candidate.bbox.length === 4) {
-        const [minLon, minLat, maxLon, maxLat] = candidate.bbox;
-        const bounds = [[minLat, minLon], [maxLat, maxLon]];
-        this.activeBboxLayer = L.rectangle(bounds, {
-          color: "#38bdf8",
-          weight: 2,
-          fillColor: "#0284c7",
-          fillOpacity: 0.15,
-          dashArray: "4, 4"
-        }).addTo(this.map);
-      }
-    }
-
-    // Render candidate inspector details
-    this.renderInspector();
-
-    // Update AR simulator candidate
-    if (this.arSimulator) {
-      this.arSimulator.setCandidate(candidate);
-    }
-  }
-
-  renderInspector() {
-    if (!this.selectedCandidate || !this.currentTarget) return;
-    const res = this.evaluationResults.find(r => r.candidateId === this.selectedCandidate.id);
-    if (!res) return;
-
-    // Toggle empty state vs content
-    const emptyState = document.getElementById("inspector-empty-state");
-    const contentEl = document.getElementById("inspector-content");
-    if (emptyState) emptyState.style.display = "none";
-    if (contentEl) contentEl.style.display = "flex";
-
-    // Apple Match Ring in header
-    const ringContainer = document.getElementById("inspector-ring-container");
-    if (ringContainer) ringContainer.innerHTML = this.renderAppleMatchRing(res.physicalSimilarity, 54);
-
-    // Candidate Header & Badges
-    const titleEl = document.getElementById("inspector-title");
-    const metaEl = document.getElementById("inspector-meta");
-    const descEl = document.getElementById("inspector-desc");
-    const simScoreEl = document.getElementById("inspector-sim-score");
-    const covScoreEl = document.getElementById("inspector-cov-score");
-    const feasScoreEl = document.getElementById("inspector-feas-score");
-    const classBadgeEl = document.getElementById("inspector-classification");
-
-    if (titleEl) titleEl.textContent = res.candidateName;
-    if (metaEl) metaEl.textContent = `${res.country} | ${res.regionType} | ${res.elevation}m | ${this.selectedCandidate.area_km2} km²`;
-    if (descEl) descEl.textContent = this.selectedCandidate.desc;
-    if (simScoreEl) simScoreEl.textContent = `${res.physicalSimilarity}%`;
-    if (covScoreEl) covScoreEl.textContent = `${res.dataCoverage}%`;
-    if (feasScoreEl) feasScoreEl.textContent = `${res.operationalFeasibility}%`;
-    if (classBadgeEl) {
-      classBadgeEl.textContent = res.classification;
-      classBadgeEl.className = res.isProvisional ? "provisional-badge" : "brand-badge";
-    }
-
-    // Dimensional Scores Progress Bars (Apple-style)
-    const dimContainer = document.getElementById("dimensions-container");
-    if (dimContainer) {
-      const dimColors = { geology: "#0a84ff", topography: "#30d158", geophysics: "#bf5af2", thermal: "#ff9f0a" };
-      const dimLabels = { geology: "Geología", topography: "Topografía", geophysics: "Geofísica", thermal: "Termal" };
-      dimContainer.innerHTML = Object.entries(res.dimensionScores).map(([dim, score]) => `
-        <div style="display: flex; flex-direction: column; gap: 3px;">
-          <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
-            <span style="color: var(--text-muted); font-weight: 500; text-transform: uppercase;">${dimLabels[dim] || dim}</span>
-            <span style="font-family: var(--font-mono); font-weight: 700; color: ${dimColors[dim] || '#38bdf8'};">${score}%</span>
-          </div>
-          <div style="height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
-            <div style="width: ${score}%; height: 100%; background: ${dimColors[dim] || '#38bdf8'}; border-radius: 3px; transition: width 0.5s ease;"></div>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    // Variable Breakdown Table
-    const tbody = document.getElementById("breakdown-table-body");
-    if (tbody) {
-      tbody.innerHTML = res.breakdown.map(item => {
-        const isEval = item.status === "EVALUATED";
-        const simColor = isEval ? (item.similarity > 75 ? '#34c759' : (item.similarity > 40 ? '#ff9f0a' : '#ff453a')) : '#ff453a';
-        return `
-          <tr style="border-bottom: 1px solid rgba(34,50,73,0.3);">
-            <td style="padding: 4px 2px;">
-              <div style="font-weight: 600; color: #fff; font-size: 0.73rem;">${item.name}</div>
-              <div style="font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase;">${item.category}</div>
-            </td>
-            <td style="text-align: right; padding: 4px 2px; font-family: var(--font-mono); color: #38bdf8; font-size: 0.73rem;">${item.earthVal !== undefined && item.earthVal !== null ? item.earthVal : 'N/A'}</td>
-            <td style="text-align: right; padding: 4px 2px; font-family: var(--font-mono); color: #f59e0b; font-size: 0.73rem;">${item.targetVal !== undefined && item.targetVal !== null ? item.targetVal : 'N/A'}</td>
-            <td style="text-align: right; padding: 4px 2px; font-family: var(--font-mono); font-size: 0.73rem;">${isEval && item.delta !== undefined ? item.delta.toFixed(2) : '-'}</td>
-            <td style="text-align: right; padding: 4px 2px; font-family: var(--font-mono); font-weight: 700; color: ${simColor}; font-size: 0.73rem;">
-              ${isEval ? `${item.similarity}%` : '<span style="font-size: 0.62rem; color: #ff453a;">SIN DATOS</span>'}
-            </td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    // Environmental Assessment Card (SDG 13, 14, 15)
-    const env = this.selectedCandidate.env;
-    const envContainer = document.getElementById("inspector-env-card");
-    if (envContainer && env) {
-      let riskBorder = "#34c759";
-      if (env.risk_level === "RESTRICTED_REVIEW") riskBorder = "#ff453a";
-      else if (env.risk_level === "HIGH_ALERT") riskBorder = "#ff6961";
-      else if (env.risk_level === "MEDIUM_ALERT") riskBorder = "#ff9f0a";
-
-      envContainer.innerHTML = `
-        <div style="border-left: 3px solid ${riskBorder}; padding-left: 10px; display: flex; flex-direction: column; gap: 5px; background: rgba(0,0,0,0.15); border-radius: 0 8px 8px 0; padding: 10px 10px 10px 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.78rem; font-weight: 700; color: ${riskBorder};">${env.risk_level}</span>
-            <span style="font-size: 0.68rem; color: var(--text-dim);">Protected Planet (WDPA)</span>
-          </div>
-          <div style="font-size: 0.76rem; color: #fff;"><strong>Área Protegida:</strong> ${env.pa_name} (IUCN: ${env.iucn})</div>
-          <div style="font-size: 0.72rem; color: var(--text-muted);"><strong>ODS 13 (Acción Climática):</strong> ${env.sdg13}</div>
-          <div style="font-size: 0.72rem; color: var(--text-muted);"><strong>ODS 14 (Vida Submarina):</strong> ${env.sdg14}</div>
-          <div style="font-size: 0.72rem; color: var(--text-muted);"><strong>ODS 15 (Vida Terrestre):</strong> ${env.sdg15}</div>
-          <div style="margin-top: 4px; padding: 6px; background: rgba(0,0,0,0.25); border-radius: 6px; font-size: 0.72rem; color: #38bdf8;">
-            <strong>Recomendación Ética:</strong> ${env.recommendation}
-          </div>
-        </div>
-      `;
-    } else if (envContainer) {
-      envContainer.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; padding: 8px;">Sin datos ambientales disponibles (NO_DATA)</div>';
-    }
-  }
-
-
-    toggleLeftDrawer() {
-    const drawer = document.getElementById("left-drawer");
-    if (drawer) {
-      drawer.classList.toggle("collapsed");
-      setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 260);
-    }
-  }
-
-  toggleRightDrawer() {
-    const drawer = document.getElementById("right-drawer");
-    if (drawer) {
-      drawer.classList.toggle("collapsed");
-      setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 260);
-    }
-  }
-
-  exportCurrentCandidateGeoJSON() {
-    if (!this.selectedCandidate) {
-      alert("Please select a candidate region first.");
-      return;
-    }
-    const res = this.evaluationResults.find(r => r.candidateId === this.selectedCandidate.id);
-    const geojson = {
-      type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: [this.selectedCandidate.lon, this.selectedCandidate.lat]
-      },
-      properties: {
-        id: this.selectedCandidate.id,
-        name: this.selectedCandidate.name,
-        country: this.selectedCandidate.country,
-        region_type: this.selectedCandidate.region_type,
-        elevation_m: this.selectedCandidate.elevation,
-        area_km2: this.selectedCandidate.area_km2,
-        target_profile: this.currentTarget ? this.currentTarget.name : "N/A",
-        target_body: this.currentBody,
-        physical_similarity_pct: res ? res.physicalSimilarity : null,
-        data_coverage_pct: res ? res.dataCoverage : null,
-        operational_feasibility_pct: res ? res.operationalFeasibility : null,
-        classification: res ? res.classification : null,
-        environmental_risk: this.selectedCandidate.env ? this.selectedCandidate.env.risk_level : "NO_DATA",
-        measurements: this.selectedCandidate.measurements,
-        exported_at: new Date().toISOString()
-      }
-    };
-
-    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/geo+json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `terraanalog_${this.selectedCandidate.id}.geojson`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  initEventListeners() {
-    // Body switch (Moon / Mars)
-    const moonBtn = document.getElementById("btn-body-moon");
-    const marsBtn = document.getElementById("btn-body-mars");
-
-    if (moonBtn && marsBtn) {
-      moonBtn.onclick = () => {
-        this.currentBody = "Moon";
-        moonBtn.classList.add("active");
-        marsBtn.classList.remove("active");
-        this.populateTargetSelector();
-        this.runAnalysis();
-      };
-
-      marsBtn.onclick = () => {
-        this.currentBody = "Mars";
-        marsBtn.classList.add("active");
-        moonBtn.classList.remove("active");
-        this.populateTargetSelector();
-        this.runAnalysis();
-      };
-    }
-
-    // Target select change
-    const targetSelect = document.getElementById("target-profile-select");
-    if (targetSelect) {
-      targetSelect.onchange = (e) => {
-        this.currentTarget = TERRA_DATA.targets.find(t => t.id === e.target.value);
-        this.updateTargetSummary();
-        this.runAnalysis();
-      };
-    }
-
-    // Tab buttons in Left Drawer
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-      btn.onclick = () => {
-        const tabTarget = btn.getAttribute("data-tab");
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
-
-        btn.classList.add("active");
-        const activeContent = document.getElementById(`tab-${tabTarget}`);
-        if (activeContent) activeContent.style.display = "flex";
-      };
-    });
-
-    // Map Category Filter Pills
-    document.querySelectorAll(".cat-pill").forEach(pill => {
-      pill.onclick = () => {
-        document.querySelectorAll(".cat-pill").forEach(p => p.classList.remove("active"));
-        pill.classList.add("active");
-        this.activeCategory = pill.getAttribute("data-cat");
-        this.runAnalysis();
-      };
-    });
-
-    // Drawer Toggles
-    const btnToggleLeft = document.getElementById("btn-toggle-left");
-    const btnCloseLeft = document.getElementById("btn-close-left-drawer");
-    if (btnToggleLeft) btnToggleLeft.onclick = () => this.toggleLeftDrawer();
-    if (btnCloseLeft) btnCloseLeft.onclick = () => this.toggleLeftDrawer();
-
-    const btnToggleRight = document.getElementById("btn-toggle-right");
-    const btnCloseRight = document.getElementById("btn-close-right-drawer");
-    if (btnToggleRight) btnToggleRight.onclick = () => this.toggleRightDrawer();
-    if (btnCloseRight) btnCloseRight.onclick = () => this.toggleRightDrawer();
-
-    // Map Quick Action Buttons
-    const btnWorldView = document.getElementById("btn-world-view");
-    if (btnWorldView) btnWorldView.onclick = () => this.zoomToWorld();
-
-    const btnFitAll = document.getElementById("btn-fit-all");
-    if (btnFitAll) btnFitAll.onclick = () => this.fitAllCandidates();
-
-    const btnToggleBasemap = document.getElementById("btn-toggle-basemap");
-    if (btnToggleBasemap) btnToggleBasemap.onclick = () => this.toggleBasemap();
-
-    const btnExportGeoJSON = document.getElementById("btn-export-geojson");
-    if (btnExportGeoJSON) btnExportGeoJSON.onclick = () => this.exportCurrentCandidateGeoJSON();
-
-    // Reverse AI Search Input
-    const reverseInput = document.getElementById("reverse-search-input");
-    const reverseBtn = document.getElementById("btn-reverse-search");
-    if (reverseInput && reverseBtn) {
-      const handleReverseSearch = () => {
-        const text = reverseInput.value.trim();
-        if (!text) return;
-        this.runReverseSearch(text);
-      };
-
-      reverseBtn.onclick = handleReverseSearch;
-      reverseInput.onkeypress = (e) => { if (e.key === "Enter") handleReverseSearch(); };
-    }
-
-    // Quick Reverse Search Example Buttons
-    document.querySelectorAll(".example-query-pill").forEach(pill => {
-      pill.onclick = () => {
-        const query = pill.getAttribute("data-query");
-        if (reverseInput) {
-          reverseInput.value = query;
-          this.runReverseSearch(query);
-        }
-      };
-    });
-
-    // Apple Spotlight Search Input (Punto 4: Lupa de Localizacion)
-    const spotlightInput = document.getElementById("spotlight-search-input");
-    if (spotlightInput) {
-      spotlightInput.addEventListener("input", (e) => {
-        this.spotlightFilterText = e.target.value;
-        this.runAnalysis();
-      });
-    }
-
-    // Physical Drawer Sliders & Selects
-    const sliderSlope = document.getElementById("slider-filter-slope");
-    if (sliderSlope) {
-      sliderSlope.addEventListener("input", () => this.runAnalysis());
-    }
-    const sliderCoverage = document.getElementById("slider-filter-coverage");
-    if (sliderCoverage) {
-      sliderCoverage.addEventListener("input", () => this.runAnalysis());
-    }
-    const filterRegion = document.getElementById("filter-region-type");
-    if (filterRegion) {
-      filterRegion.addEventListener("change", () => this.runAnalysis());
-    }
-
-    // Modals
-    this.initModalTriggers();
-  }
-
-  runReverseSearch(text) {
-    const criteria = SCIENTIFIC_ENGINE.parseReverseQuery(text);
-    const parsedCard = document.getElementById("reverse-parsed-card");
-    const resultsContainer = document.getElementById("reverse-results-container");
-
-    if (parsedCard) {
-      parsedCard.style.display = "block";
-      parsedCard.innerHTML = `
-        <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--accent-cyan); font-weight: 600; margin-bottom: 4px;">
-          Detected Semantic Criteria:
-        </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-          ${criteria.matchedTokens.map(t => `<span class="brand-badge">${t}</span>`).join("")}
-        </div>
-      `;
-    }
-
-    const ranked = SCIENTIFIC_ENGINE.rankCandidatesByReverseQuery(criteria, TERRA_DATA.candidates);
-    if (resultsContainer) {
-      resultsContainer.innerHTML = ranked.map((item, idx) => `
-        <div class="candidate-card" onclick="window.terraApp.selectCandidate('${item.candidate.id}')">
-          <div class="card-header">
-            <div>
-              <div class="card-title">#${idx + 1} ${item.candidate.name}</div>
-              <div class="card-meta">${item.candidate.country} &bull; ${item.candidate.region_type}</div>
-            </div>
-            <div class="score-badge score-moderate">${item.relevance}% Match</div>
-          </div>
-          <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
-            ${item.reasons.slice(0, 2).map(r => `&bull; ${r}`).join("<br>")}
-          </div>
-        </div>
-      `).join("");
-    }
-  }
-
-  initGlobe() {
-    const canvas = document.getElementById("globe-canvas");
-    if (!canvas || typeof OblateSpheroidGlobe === "undefined") return;
-
-    this.globe = new OblateSpheroidGlobe("globe-canvas", this);
-
-    // Globe Toggle Button
-    const btnToggleGlobe = document.getElementById("btn-toggle-globe");
-    if (btnToggleGlobe) {
-      btnToggleGlobe.onclick = () => this.toggleGlobeView();
-    }
-
-    // Globe Celestial Body Selector
-    const selGlobeBody = document.getElementById("globe-body-select");
-    if (selGlobeBody) {
-      selGlobeBody.onchange = (e) => {
-        if (this.globe) {
-          const bodyVal = e.target.value;
-          this.globe.setBody(bodyVal);
-          if (bodyVal === "Earth" && this.selectedCandidate) {
-            this.globe.focusOnSite(this.selectedCandidate.lat, this.selectedCandidate.lon);
-          } else if (this.currentTarget && bodyVal !== "Earth") {
-            this.globe.focusOnSite(this.currentTarget.lat, this.currentTarget.lon);
-          }
-        }
-      };
-    }
-  }
-
-  toggleGlobeView() {
-    const globeWrapper = document.getElementById("globe-canvas-wrapper");
-    const btnToggle = document.getElementById("btn-toggle-globe");
-    const hud2d = document.getElementById("map-hud-overlay-2d");
-    const fallbackCanvas = document.getElementById("fallback-map-canvas");
-    const leafletElements = document.querySelectorAll("#map-viewport > .leaflet-pane, #map-viewport > .leaflet-control-container");
-    if (!globeWrapper) return;
-
-    this.isGlobeView = !this.isGlobeView;
-
-    if (this.isGlobeView) {
-      globeWrapper.style.display = "block";
-      globeWrapper.style.zIndex = "440";
-      if (hud2d) hud2d.style.display = "none";
-      if (fallbackCanvas) fallbackCanvas.style.display = "none";
-      leafletElements.forEach(el => el.style.display = "none");
-
-      if (this.globe) {
-        // Default to Earth so all 20 terrestrial analog candidates are immediately visible and interactive
-        const selGlobeBody = document.getElementById("globe-body-select");
-        const bodyToSet = selGlobeBody ? selGlobeBody.value : "Earth";
-        this.globe.setBody(bodyToSet);
-
-        if (this.selectedCandidate && bodyToSet === "Earth") {
-          this.globe.focusOnSite(this.selectedCandidate.lat, this.selectedCandidate.lon);
-        } else if (this.currentTarget && bodyToSet !== "Earth") {
-          this.globe.focusOnSite(this.currentTarget.lat, this.currentTarget.lon);
-        }
-
-        this.globe.startAnimation();
-        this.globe.render();
-      }
-      if (btnToggle) {
-        btnToggle.innerHTML = "🗺️ Mapa 2D";
-        btnToggle.style.background = "rgba(6, 182, 212, 0.35)";
-        btnToggle.classList.add("active");
-      }
-    } else {
-      globeWrapper.style.display = "none";
-      if (hud2d) hud2d.style.display = "";
-      if (fallbackCanvas && !this.map) fallbackCanvas.style.display = "block";
-      leafletElements.forEach(el => el.style.display = "");
-
-      if (this.globe) this.globe.stopAnimation();
-      if (this.map) this.map.invalidateSize();
-      if (btnToggle) {
-        btnToggle.innerHTML = "🌐 3D Oblato";
-        btnToggle.style.background = "";
-        btnToggle.classList.remove("active");
-      }
-    }
-  }
-
-  initTutorialController() {
-    const stepTitles = {
-      1: "Paso 1: Misión y Filosofía Científica",
-      2: "Paso 2: Selección de Objetivos Lunares y Marcianos",
-      3: "Paso 3: Algoritmo de Similitud Gaussiana",
-      4: "Paso 4: Evaluación Ética y Ambiental (ODS 13, 14, 15)",
-      5: "Paso 5: Simulador AR y Terramecánica",
-      6: "Paso 6: Búsqueda Inversa con IA y Exportación"
-    };
-
-    const updateStep = (step) => {
-      this.currentTutStep = Math.max(1, Math.min(6, step));
-
-      // Hide all step cards, show current
-      for (let i = 1; i <= 6; i++) {
-        const card = document.getElementById(`tut-step-${i}`);
-        if (card) card.classList.toggle("active", i === this.currentTutStep);
-      }
-
-      // Update dots
-      document.querySelectorAll(".tutorial-step-indicator .step-dot").forEach(dot => {
-        const dStep = parseInt(dot.getAttribute("data-step"), 10);
-        dot.classList.toggle("active", dStep === this.currentTutStep);
-      });
-
-      // Update title and step numbers
-      const titleEl = document.getElementById("tutorial-step-title");
-      if (titleEl) titleEl.textContent = stepTitles[this.currentTutStep] || `Paso ${this.currentTutStep}`;
-
-      const numEl = document.getElementById("tut-step-num");
-      if (numEl) numEl.textContent = this.currentTutStep;
-
-      // Update Prev / Next buttons
-      const btnPrev = document.getElementById("btn-tut-prev");
-      if (btnPrev) btnPrev.style.visibility = (this.currentTutStep === 1) ? "hidden" : "visible";
-
-      const btnNext = document.getElementById("btn-tut-next");
-      if (btnNext) {
-        btnNext.textContent = (this.currentTutStep === 6) ? "Finalizar ✓" : "Siguiente ▶";
-      }
-    };
-
-    const btnPrev = document.getElementById("btn-tut-prev");
-    if (btnPrev) {
-      btnPrev.onclick = () => updateStep(this.currentTutStep - 1);
-    }
-
-    const btnNext = document.getElementById("btn-tut-next");
-    if (btnNext) {
-      btnNext.onclick = () => {
-        if (this.currentTutStep >= 6) {
-          const modal = document.getElementById("modal-tutorial");
-          if (modal) modal.classList.remove("open");
-        } else {
-          updateStep(this.currentTutStep + 1);
-        }
-      };
-    }
-
-    // Direct click on step dots
-    document.querySelectorAll(".tutorial-step-indicator .step-dot").forEach(dot => {
-      dot.onclick = () => {
-        const s = parseInt(dot.getAttribute("data-step"), 10);
-        if (s) updateStep(s);
-      };
-    });
-  }
-
-  initDocsTabs() {
-    document.querySelectorAll(".doc-tab-btn").forEach(btn => {
-      btn.onclick = () => {
-        const target = btn.getAttribute("data-doctab");
-        document.querySelectorAll(".doc-tab-btn").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".doc-tab-pane").forEach(p => p.classList.remove("active"));
-
-        btn.classList.add("active");
-        const activePane = document.getElementById(`pane-${target}`);
-        if (activePane) activePane.classList.add("active");
-      };
-    });
-  }
-
-  setSimBody(bodyKey) {
-    if (this.arSimulator) {
-      this.arSimulator.setBody(bodyKey);
-    }
-    const map = { Moon: "sim-body-moon", Mars: "sim-body-mars", Earth: "sim-body-earth" };
-    Object.entries(map).forEach(([b, id]) => {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle("active", b === bodyKey);
-    });
-  }
-
-  setSimViewMode(mode) {
-    if (this.arSimulator) {
-      this.arSimulator.setViewMode(mode);
-    }
-    const map = {
-      SHADED: "sim-mode-shaded",
-      THERMAL_IR: "sim-mode-flir",
-      SLOPE_HAZARD: "sim-mode-hazard",
-      WIREFRAME: "sim-mode-wire"
-    };
-    Object.entries(map).forEach(([m, id]) => {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle("active", m === mode);
-    });
-  }
-
-  triggerDrill() {
-    if (!this.arSimulator) return;
-    this.arSimulator.drillActive = !this.arSimulator.drillActive;
-    alert(this.arSimulator.drillActive 
-      ? "⚡ Core Drill Activated! Drilling 1.5m regolith core for in-situ mineral extraction..."
-      : "⚡ Core Drill Retracted. Sample secured in sealed carousel.");
-  }
-
-  triggerRadarScan() {
-    if (!this.arSimulator) return;
-    this.arSimulator.radarActive = !this.arSimulator.radarActive;
-    alert(this.arSimulator.radarActive 
-      ? "📡 Ground Penetrating Radar (GPR) active: Transmitting 500 MHz chirps. Subsurface dielectric permittivity mapped to -5m depth."
-      : "📡 Ground Penetrating Radar deactivated.");
-  }
-
-  initModalTriggers() {
-    // AR Simulator Modal
-    const btnAr = document.getElementById("btn-open-ar");
-    const modalAr = document.getElementById("modal-ar-sim");
-    if (btnAr && modalAr) {
-      btnAr.onclick = () => {
-        modalAr.classList.add("open");
-        setTimeout(() => { if (this.arSimulator) this.arSimulator.render(); }, 150);
-      };
-    }
-
-    // Tutorial Modal
-    const btnTutorial = document.getElementById("btn-open-tutorial");
-    const modalTutorial = document.getElementById("modal-tutorial");
-    if (btnTutorial && modalTutorial) {
-      btnTutorial.onclick = () => {
-        modalTutorial.classList.add("open");
-      };
-    }
-
-    // Docs & Architecture Modal
-    const btnDocs = document.getElementById("btn-open-docs");
-    const modalDocs = document.getElementById("modal-docs");
-    if (btnDocs && modalDocs) {
-      btnDocs.onclick = () => {
-        modalDocs.classList.add("open");
-      };
-    }
-
-    // Step Rover button in AR modal
-    const btnStepRover = document.getElementById("btn-step-rover");
-    if (btnStepRover) {
-      btnStepRover.onclick = () => {
-        if (this.arSimulator) this.arSimulator.stepRover();
-      };
-    }
-
-    // Event Logger Modal
-    const btnEvents = document.getElementById("btn-open-events");
-    const modalEvents = document.getElementById("modal-event-logger");
-    if (btnEvents && modalEvents) {
-      btnEvents.onclick = () => {
-        modalEvents.classList.add("open");
-      };
-    }
-
-    // New Event Submission
-    const btnSubmitEvent = document.getElementById("btn-submit-event");
-    if (btnSubmitEvent) {
-      btnSubmitEvent.onclick = () => {
-        this.submitNewEvent();
-      };
-    }
-
-    // Compare Modal
-    const btnCompare = document.getElementById("btn-open-compare");
-    const modalCompare = document.getElementById("modal-compare");
-    if (btnCompare && modalCompare) {
-      btnCompare.onclick = () => {
-        this.renderCompareModal();
-        modalCompare.classList.add("open");
-      };
-    }
-
-        // Multi-Disciplinary Map Layers Modal (Section 4.4)
-    const btnLayers = document.getElementById("btn-open-layers");
-    const modalLayers = document.getElementById("modal-layers");
-    if (btnLayers && modalLayers) {
-      btnLayers.onclick = () => {
-        modalLayers.classList.add("open");
-      };
-      const closeBtn = modalLayers.querySelector(".close-btn");
-      if (closeBtn) closeBtn.onclick = () => modalLayers.classList.remove("open");
-      modalLayers.onclick = (e) => {
-        if (e.target === modalLayers) modalLayers.classList.remove("open");
-      };
-    }
-
-    // Checklist Modal (Punto 6: Apple Workflow Checklist)
-    const btnChecklist = document.getElementById("btn-open-checklist");
-    const modalChecklist = document.getElementById("modal-checklist");
-    if (btnChecklist && modalChecklist) {
-      btnChecklist.onclick = () => {
-        this.renderChecklist();
-        modalChecklist.classList.add("open");
-      };
-    }
-
-    // Close buttons on all modals
-    document.querySelectorAll(".modal-overlay .close-btn, .modal-overlay .btn-close").forEach(btn => {
-      btn.onclick = (e) => {
-        const overlay = e.target.closest(".modal-overlay");
-        if (overlay) overlay.classList.remove("open");
-      };
-    });
-
-    // Apple Sheet/Modal Backdrop Click to dismiss
-    document.querySelectorAll(".modal-overlay").forEach(overlay => {
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-          overlay.classList.remove("open");
-        }
-      });
-    });
-
-    // Escape key to dismiss any open sheet/modal
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        document.querySelectorAll(".modal-overlay.open").forEach(m => m.classList.remove("open"));
-        const pop = document.querySelector(".apple-popover");
-        if (pop) pop.remove();
-      }
-    });
-  }
-
-  initArSimulator() {
-    this.arSimulator = new ArSimulator("ar-canvas");
-  }
-
-  renderEventsTable() {
-    const tableBody = document.getElementById("events-table-body");
-    if (!tableBody) return;
-
-    tableBody.innerHTML = TERRA_DATA.events.map(e => `
-      <tr>
-        <td><strong style="color: #fff;">${e.region_name}</strong></td>
-        <td><span class="brand-badge">${e.event_type}</span></td>
-        <td><span class="eco-pill ${e.severity === 'CRITICAL' ? 'eco-restricted' : (e.severity === 'HIGH' ? 'eco-high' : 'eco-medium')}">${e.severity}</span></td>
-        <td style="font-size: 0.74rem;">${e.description}</td>
-        <td style="font-size: 0.74rem; color: #38bdf8;">${e.mitigation}</td>
-        <td><span class="score-badge score-high" style="font-size: 0.68rem;">${e.status}</span></td>
-      </tr>
-    `).join("");
-  }
-
-  submitNewEvent() {
-    const regionSelect = document.getElementById("evt-region-select");
-    const typeSelect = document.getElementById("evt-type-select");
-    const severitySelect = document.getElementById("evt-severity-select");
-    const descInput = document.getElementById("evt-desc-input");
-    const mitigationInput = document.getElementById("evt-mitigation-input");
-
-    if (!descInput || !descInput.value.trim()) {
-      alert("Please provide a description of the environmental event.");
-      return;
-    }
-
-    const regId = regionSelect ? regionSelect.value : "reg_pinacate";
-    const cand = TERRA_DATA.candidates.find(c => c.id === regId);
-
-    const newEvt = {
-      id: `evt_${Date.now()}`,
-      region_id: regId,
-      region_name: cand ? cand.name : "Candidate Region",
-      event_type: typeSelect ? typeSelect.value : "PREVENTIVE_ALERT",
-      severity: severitySelect ? severitySelect.value : "MEDIUM",
-      status: "REGISTERED",
-      description: descInput.value.trim(),
-      activity: "Field Simulation Hardware Testing",
-      impact_type: "Regolith compaction & biological crust disturbance",
-      reviewer: "Field Planetary Protection Officer",
-      observed_at: new Date().toISOString(),
-      mitigation: mitigationInput ? mitigationInput.value.trim() : "Standard exclusion perimeter set."
-    };
-
-    TERRA_DATA.events.unshift(newEvt);
-    this.renderEventsTable();
-    descInput.value = "";
-    if (mitigationInput) mitigationInput.value = "";
-
-    const modal = document.getElementById("modal-event-logger");
-    if (modal) modal.classList.remove("open");
-    alert("Environmental Event successfully registered in persistent damage log!");
-  }
-
-  renderCompareModal() {
-    const container = document.getElementById("compare-container");
-    if (!container) return;
-
-    // Pick top 3 candidates to compare
-    const topCandidates = this.evaluationResults.slice(0, 3);
-    if (topCandidates.length === 0) return;
-
-    container.innerHTML = `
-      <div style="display: grid; grid-template-columns: repeat(${topCandidates.length}, 1fr); gap: 1rem;">
-        ${topCandidates.map(c => `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
-            <div style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 4px;">${c.candidateName}</div>
-            <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px;">${c.country} &bull; ${c.regionType}</div>
-            <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-cyan); margin-bottom: 8px;">
-              ${c.physicalSimilarity}% Match
-            </div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Coverage: <strong>${c.dataCoverage}%</strong></div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">Feasibility: <strong>${c.operationalFeasibility}%</strong></div>
-            
-            <div style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px;">Key Variables:</div>
-            <div style="font-size: 0.75rem; display: flex; flex-direction: column; gap: 4px;">
-              ${c.breakdown.slice(0, 6).map(b => `
-                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 2px 0;">
-                  <span style="color: var(--text-muted);">${b.name}</span>
-                  <span style="font-family: var(--font-mono); color: #fff;">${b.earthVal !== undefined ? b.earthVal : 'N/A'}</span>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  /* ============================================================
-     APPLE HIG: LOCATE CANDIDATE ON MAP / GLOBE (Punto 4: Lupa)
-     ============================================================ */
-  locateCandidateOnMap(candidateId) {
-    const candidate = TERRA_DATA.candidates.find(c => c.id === candidateId);
-    if (!candidate) return;
-
-    this.selectCandidate(candidateId);
-
-    if (this.isGlobeView && this.globe) {
-      const selGlobeBody = document.getElementById("globe-body-select");
-      if (selGlobeBody && selGlobeBody.value !== "Earth") {
-        selGlobeBody.value = "Earth";
-        this.globe.setBody("Earth");
-      }
-      this.globe.focusOnSite(candidate.lat, candidate.lon);
-    } else if (this.map && typeof L !== "undefined") {
-      this.map.flyTo([candidate.lat, candidate.lon], 7, { duration: 1.4 });
-      if (this.markers[candidateId]) {
-        this.markers[candidateId].openPopup();
-      }
-
-      // Add temporary radar pulse beacon animation around marker
-      if (this.locatePingLayer) {
-        this.map.removeLayer(this.locatePingLayer);
-      }
-      const pingIcon = L.divIcon({
-        className: 'apple-ping-beacon',
-        html: '',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-      this.locatePingLayer = L.marker([candidate.lat, candidate.lon], { icon: pingIcon }).addTo(this.map);
-      setTimeout(() => {
-        if (this.locatePingLayer && this.map) {
-          this.map.removeLayer(this.locatePingLayer);
-          this.locatePingLayer = null;
-        }
-      }, 4500);
-    }
-  }
-
-  /* ============================================================
-     APPLE HIG: INFO POPOVER (Punto 5: Botón de Información ⓘ)
-     ============================================================ */
-  showInfoPopover(type, event) {
-    const existing = document.querySelector(".apple-popover");
-    if (existing) existing.remove();
-
-    const info = {
-      similarity: {
-        title: "Gaussian Physical Similarity",
-        formula: "s_i = exp(-0.5 · (d_i / τ_i)²)",
-        desc: "Cada variable se compara de forma transparente contra el objetivo planetario con tolerancia instrumental (τ). Desviaciones pequeñas no castigan el puntaje drásticamente.",
-        rule: "Regla científica: El score físico NUNCA se promedia con viabilidad ni con riesgo ambiental."
-      },
-      coverage: {
-        title: "Data Coverage Index",
-        formula: "Cobertura = Σ(w_i · q_i) / Σ(w_total) × 100",
-        desc: "Porcentaje de variables requeridas que poseen mediciones satelitales/in-situ reales y calibradas.",
-        rule: "If sensor data coverage is below 60%, the candidate is automatically assigned PROVISIONAL status."
-      },
-      feasibility: {
-        title: "Viabilidad Operativa",
-        formula: "Score = 85 - Penalizaciones(Pendiente, Rugosidad)",
-        desc: "Evaluates surface slope and terrain roughness for rover traverse and field equipment safety.",
-        rule: "Pendiente > 20° resta 30 pts; > 12° resta 15 pts; rugosidad > 0.4 resta 20 pts."
-      },
-      environment: {
-        title: "Evaluación Ambiental y ODS",
-        formula: "Cruce espacial con WDPA / UNEP-WCMC (ODS 13, 14, 15)",
-        desc: "Intersección ética con la Base Mundial de Áreas Protegidas y hábitats críticos.",
-        rule: "High physical similarity does NOT grant field authorization. Protected areas require RESTRICTED_REVIEW."
-      }
-    };
-
-    const item = info[type] || { title: "Información Contextual", formula: "", desc: "Detalle científico del parámetro.", rule: "" };
-
-    const popover = document.createElement("div");
-    popover.className = "apple-popover";
-    popover.innerHTML = `
-      <h5>
-        <span>ⓘ</span> ${item.title}
-      </h5>
-      ${item.formula ? `<div class="apple-popover-formula">${item.formula}</div>` : ""}
-      <p style="margin: 4px 0 6px 0; color: #cbd5e1; font-size: 0.74rem; line-height: 1.45;">${item.desc}</p>
-      ${item.rule ? `<div style="font-size: 0.68rem; color: #38bdf8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;"><strong>Nota:</strong> ${item.rule}</div>` : ""}
-    `;
-
-    document.body.appendChild(popover);
-
-    const rect = event.target.getBoundingClientRect();
-    const popWidth = 300;
-    let left = rect.left + (rect.width / 2) - (popWidth / 2);
-    if (left + popWidth > window.innerWidth - 12) left = window.innerWidth - popWidth - 12;
-    if (left < 12) left = 12;
-
-    popover.style.position = "fixed";
-    popover.style.top = `${rect.bottom + 8}px`;
-    popover.style.left = `${left}px`;
-    popover.style.zIndex = "2000";
-
-    const dismissHandler = (e) => {
-      if (!popover.contains(e.target) && e.target !== event.target) {
-        popover.remove();
-        document.removeEventListener("click", dismissHandler);
-      }
-    };
-    setTimeout(() => document.addEventListener("click", dismissHandler), 40);
-  }
-
-
-  /* ============================================================
-     APPLE HIG: CHECKLIST CONTROLLER (Punto 6: Listado de Optimización)
-     ============================================================ */
-  initChecklistController() {
-    // Define checklist items
-    this.checklistItems = [
-      { id: "chk_target", title: "Seleccionar Objetivo Planetario", desc: "Elegir perfil de Luna o Marte para la comparación." },
-      { id: "chk_filters", title: "Configure Scientific Filters", desc: "Tune maximum slope, minimum data coverage and planetary environment types." },
-      { id: "chk_analysis", title: "Execute Similarity Engine", desc: "Compute multi-objective τ-weighted Gaussian decay matrix for all candidate sites." },
-      { id: "chk_inspect", title: "Inspect Top 3 Analog Candidates", desc: "Review multi-dimensional physical variable breakdown and sensor coverage." },
-      { id: "chk_env", title: "Verificar Evaluación Ambiental", desc: "Confirmar estatus ODS 13, 14, 15 y WDPA antes de recomendar." },
-      { id: "chk_compare", title: "Side-by-Side Comparison", desc: "Perform multi-candidate benchmark across all physical and topographic dimensions." },
-      { id: "chk_export", title: "Export OGC GeoJSON Dossier", desc: "Download validated analog site with full scientific provenance and coordinate reference." }
-    ];
-
-    // Load saved state from localStorage
-    try {
-      const saved = localStorage.getItem("terraanalog_checklist");
-      this.checklistState = saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      this.checklistState = {};
-    }
-
-    this.renderChecklist();
-
-    // Wire up checklist buttons
-    const btnReset = document.getElementById("btn-reset-checklist");
-    if (btnReset) {
-      btnReset.onclick = () => {
-        this.checklistState = {};
-        localStorage.removeItem("terraanalog_checklist");
-        this.renderChecklist();
-      };
-    }
-
-    const btnCompleteAll = document.getElementById("btn-complete-all-checklist");
-    if (btnCompleteAll) {
-      btnCompleteAll.onclick = () => {
-        this.checklistItems.forEach(item => { this.checklistState[item.id] = true; });
-        localStorage.setItem("terraanalog_checklist", JSON.stringify(this.checklistState));
-        this.renderChecklist();
-      };
-    }
-  }
-
-  toggleChecklistItem(itemId) {
-    this.checklistState[itemId] = !this.checklistState[itemId];
-    localStorage.setItem("terraanalog_checklist", JSON.stringify(this.checklistState));
-    this.renderChecklist();
-  }
-
-  renderChecklist() {
-    const container = document.getElementById("checklist-items-container");
-    if (!container || !this.checklistItems) return;
-
-    const completedCount = this.checklistItems.filter(i => this.checklistState[i.id]).length;
-    const total = this.checklistItems.length;
-    const pct = Math.round((completedCount / total) * 100);
-
-    // Update progress
-    const progressText = document.getElementById("checklist-progress-text");
-    if (progressText) progressText.textContent = `${completedCount} / ${total} completed (${pct}%)`;
-
-    const progressBar = document.getElementById("checklist-progress-bar");
-    if (progressBar) progressBar.style.width = `${pct}%`;
-
-    container.innerHTML = this.checklistItems.map((item, idx) => {
-      const done = this.checklistState[item.id];
-      return `
-        <div class="apple-checklist-item ${done ? 'completed' : ''}" onclick="window.terraApp.toggleChecklistItem('${item.id}')">
-          <div class="apple-checklist-checkbox">${done ? '✓' : (idx + 1)}</div>
-          <div>
-            <div class="apple-checklist-title">${item.title}</div>
-            <div class="apple-checklist-desc">${item.desc}</div>
-          </div>
-        </div>
-      `;
-    }).join("");
-  }
+/* =========================================================================
+ * TerraAnalog - Application controller
+ * Maps (Leaflet Earth + Leaflet planetary + 3D globe), reactive scoring,
+ * layers, hazards, rover simulation and state-driven mission checklist.
+ * ========================================================================= */
+const appState = {
+  sites: TA.sites.map(s => Object.assign({}, s)),
+  selectedId: null, cardClosed: false,
+  body: "moon", target: "shackleton",
+  basemap: "satellite",            // satellite | topo | planet
+  projection: "2d",                // 2d | 3d
+  layers: { markers: true, hazards: true, slope: false, dem: false, sun: true },
+  mineralFilter: null,
+  evals: {},
+  mission: { targetChosen: false, hazardReviewed: {}, simVerified: {}, lastSim: {} },
+  leftOpen: true, rightOpen: true, nextId: 1000
+};
+
+let earthMap = null, planetMap = null, earthTiles = {}, planetTiles = {}, planetShownBody = null;
+let markerGroup = null, hazardGroup = null, slopeGroup = null, demLayer = null, planetMarkerGroup = null;
+let sim = null, refreshQueued = false, toastTimer = null;
+
+const COLORS = { viable: "#30D158", caution: "#FFD60A", hazard: "#FF453A" };
+const WRAPS = [-360, 0, 360];
+const $ = id => document.getElementById(id);
+
+/* ---------------------------------------------------------------- helpers */
+function invalidateEvals() { appState.evals = {}; }
+function E(site) { return appState.evals[site.id] || (appState.evals[site.id] = TA.engine.evaluate(site, appState.target)); }
+function selectedSite() { return appState.sites.find(s => s.id === appState.selectedId) || null; }
+function bodyName(b) { return b === "moon" ? "Moon" : "Mars"; }
+function esc(t) { return String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function showToast(msg) {
+  const t = $("terraToast"); $("terraToastMsg").textContent = msg;
+  t.classList.remove("opacity-0", "-translate-y-4");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("opacity-0", "-translate-y-4"), 2600);
+}
+function scheduleRefresh() { if (refreshQueued) return; refreshQueued = true; requestAnimationFrame(() => { refreshQueued = false; refresh(); }); }
+function statusClass(status) { return status === "viable" ? "text-terraGreen" : status === "caution" ? "text-[#FFD60A]" : "text-terraRed"; }
+function visibleSites() {
+  const q = $("searchInput").value.toLowerCase().trim(), mf = appState.mineralFilter;
+  return appState.sites.filter(s => {
+    if (mf && !s.minerals.some(m => mf.keywords.some(k => m.toLowerCase().includes(k)))) return false;
+    if (!q) return true;
+    return s.name.toLowerCase().includes(q) || s.country.toLowerCase().includes(q) || s.envLabel.toLowerCase().includes(q) || s.minerals.some(m => m.toLowerCase().includes(q));
+  });
+}
+function rankedSites() {
+  return visibleSites().sort((a, b) => {
+    const ea = E(a), eb = E(b);
+    if (ea.passed !== eb.passed) return ea.passed ? -1 : 1;
+    return eb.score - ea.score;
+  });
 }
 
-// Global bootstrap on DOM ready
-document.addEventListener("DOMContentLoaded", () => {
-  window.terraApp = new TerraAnalogApp();
+/* ------------------------------------------------------------------ maps */
+function initEarthMap() {
+  earthMap = L.map("leafletMap", { center: [20, 0], zoom: 2, minZoom: 2, maxZoom: 18, zoomControl: false, worldCopyJump: true, attributionControl: true });
+  earthTiles.satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" });
+  earthTiles.topo = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17, attribution: "Map &copy; OpenTopoMap (CC-BY-SA), SRTM, OSM contributors" });
+  demLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 14, opacity: 0.55, attribution: "Hillshade &copy; Esri" });
+  slopeGroup = L.layerGroup().addTo(earthMap);
+  hazardGroup = L.layerGroup().addTo(earthMap);
+  markerGroup = L.layerGroup().addTo(earthMap);
+  earthMap.on("zoomend", updateZoomBadge);
+}
+
+function ensurePlanetMap() {
+  if (planetMap) return;
+  planetMap = L.map("planetMap", { crs: L.CRS.EPSG4326, center: [0, 0], zoom: 2, minZoom: 1, maxZoom: 11, zoomControl: false, worldCopyJump: true, attributionControl: true });
+  // NASA Trek WMTS (geographic grid): matrix level = Leaflet zoom - 1
+  const trek = (path, nativeMax, attr) => L.tileLayer(`https://trek.nasa.gov/tiles/${path}/1.0.0/default/default028mm/{z}/{y}/{x}.jpg`, { zoomOffset: -1, minZoom: 1, maxNativeZoom: nativeMax, maxZoom: 11, attribution: attr });
+  planetTiles.moon = trek("Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02", 9, "Imagery: NASA / LRO WAC / ASU via NASA Trek");
+  planetTiles.mars = trek("Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m", 8, "Imagery: NASA / USGS Viking MDIM 2.1 via NASA Trek");
+  planetMarkerGroup = L.layerGroup().addTo(planetMap);
+  planetMap.on("zoomend", updateZoomBadge);
+}
+
+// Single place that decides which surface (Earth map / planetary map / 3D globe) is visible
+function applyView() {
+  const is3d = appState.projection === "3d", planet = appState.basemap === "planet";
+  $("leafletMap").classList.toggle("hidden", is3d || planet);
+  $("planetMap").classList.toggle("hidden", is3d || !planet);
+  $("satelliteCanvas").classList.toggle("hidden", !is3d);
+
+  if (!is3d && !planet) {
+    Object.keys(earthTiles).forEach(k => { const on = k === appState.basemap; if (on && !earthMap.hasLayer(earthTiles[k])) earthTiles[k].addTo(earthMap); if (!on && earthMap.hasLayer(earthTiles[k])) earthMap.removeLayer(earthTiles[k]); });
+    earthMap.invalidateSize();
+  }
+  if (!is3d && planet) {
+    ensurePlanetMap(); planetMap.invalidateSize();
+    ["moon", "mars"].forEach(b => { if (b !== appState.body && planetMap.hasLayer(planetTiles[b])) planetMap.removeLayer(planetTiles[b]); });
+    if (!planetMap.hasLayer(planetTiles[appState.body])) planetTiles[appState.body].addTo(planetMap);
+    if (planetShownBody !== appState.body) {
+      const t = TA.targets[appState.target]; planetMap.setView([t.lat, t.lon], Math.min(t.zoom, 4)); planetShownBody = appState.body;
+    }
+  }
+  if (is3d) {
+    TA.globe.resize(); TA.globe.setBody(planet ? appState.body : "earth"); TA.globe.setTerminator(appState.layers.sun); TA.globe.setActive(true);
+  } else { TA.globe.setActive(false); }
+  syncToolbar(); applyLayers(); refresh(); updateZoomBadge();
+}
+
+function syncToolbar() {
+  const set = (id, on, mode) => { const el = $(id); if (!el) return; const base = "touch-target min-h-[32px] px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition "; el.className = mode === "tab" ? "touch-target min-h-[30px] rounded-lg font-semibold transition " + (on ? "tab-on" : "tab-off") : base + (on ? "seg-on" : "seg-off"); };
+  set("btnBaseSat", appState.basemap === "satellite"); set("btnBaseTopo", appState.basemap === "topo"); set("btnBasePlanet", appState.basemap === "planet");
+  set("btnProj2D", appState.projection === "2d"); set("btnProj3D", appState.projection === "3d");
+  set("lyrSat", appState.basemap === "satellite", "tab"); set("lyrTopo", appState.basemap === "topo", "tab"); set("lyrPlanet", appState.basemap === "planet", "tab");
+  $("btnBasePlanet").textContent = `${bodyName(appState.body)} Surface`;
+  $("lyrPlanet").textContent = bodyName(appState.body);
+  const moon = appState.body === "moon";
+  $("btnBodyMoon").className = "touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold transition " + (moon ? "seg-on" : "seg-off");
+  $("btnBodyMars").className = "touch-target min-h-[32px] px-3 rounded-lg text-xs font-semibold transition " + (!moon ? "seg-on" : "seg-off");
+}
+
+function setBasemap(b) { appState.basemap = b; applyView(); showToast(b === "planet" ? `${bodyName(appState.body)} imagery: NASA Trek` : b === "topo" ? "Topographic basemap (OpenTopoMap)" : "Satellite basemap (Esri World Imagery)"); }
+function setProjection(p) { appState.projection = p; applyView(); showToast(p === "3d" ? "3D globe with real planetary imagery" : "2D map view"); }
+
+function updateZoomBadge() {
+  let txt = "Z 2";
+  if (appState.projection === "3d") txt = `${Math.round(TA.globe.scale * 100)}%`;
+  else if (appState.basemap === "planet" && planetMap) txt = `Z ${planetMap.getZoom()}`;
+  else if (earthMap) txt = `Z ${earthMap.getZoom()}`;
+  $("zoomBadge").textContent = txt;
+}
+function zoomMap(d) {
+  if (appState.projection === "3d") { TA.globe.zoom(d * 0.25); updateZoomBadge(); return; }
+  const m = appState.basemap === "planet" ? planetMap : earthMap; if (!m) return;
+  d > 0 ? m.zoomIn() : m.zoomOut();
+}
+
+/* --------------------------------------------------------------- markers */
+function pinHtml(color, label, selected, extra) {
+  const size = selected ? 36 : 28;
+  return { size, html: `<div class="pin-wrap ${selected ? "pin-selected" : ""} ${extra || ""}" style="width:${size}px;height:${size}px"><span class="pin-ring" style="background:${color}"></span><span class="pin-core" style="background:${color}">${label}</span></div>` };
+}
+
+function hazardPopup(site, hz) {
+  const col = hz.severity === "high" ? "#FF453A" : "#FF9F0A";
+  return `<div style="min-width:220px;max-width:260px"><div class="hz-title" style="color:${col}">${esc(hz.title)}</div>
+    <div style="font-size:11px;color:#fff;margin-top:2px;font-weight:600">${esc(site.name)}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;line-height:1.4">${esc(hz.text)}</div>
+    <div class="hz-note">Severity: ${hz.severity === "high" ? "critical" : "moderate"}. Indicative footprint derived from site attributes (not an official boundary).</div></div>`;
+}
+
+function renderEarthLayers() {
+  markerGroup.clearLayers(); hazardGroup.clearLayers(); slopeGroup.clearLayers();
+  const sites = visibleSites(), L_ = appState.layers;
+  sites.forEach(site => {
+    const ev = E(site), selected = site.id === appState.selectedId;
+    WRAPS.forEach(off => {
+      if (L_.slope) {
+        const c = site.slope < 8 ? "#30D158" : site.slope < 15 ? "#FF9F0A" : "#FF453A";
+        [150000, 95000, 50000].forEach(r => L.circle([site.lat, site.lon + off], { radius: r, stroke: false, fillColor: c, fillOpacity: 0.11, interactive: false }).addTo(slopeGroup));
+      }
+      if (L_.hazards) {
+        ev.hazards.forEach(hz => {
+          const pts = TA.engine.polygon(site, hz).map(p => [p[0], p[1] + off]);
+          const col = hz.severity === "high" ? "#FF453A" : "#FF9F0A";
+          const poly = L.polygon(pts, { color: col, weight: 1.5, fillColor: col, fillOpacity: 0.24 }).bindPopup(hazardPopup(site, hz));
+          poly.on("popupopen", () => { appState.mission.hazardReviewed[site.id] = true; updateMission(); });
+          poly.addTo(hazardGroup);
+        });
+      }
+      if (L_.markers) {
+        const p = pinHtml(COLORS[ev.status], ev.score + "%", selected);
+        const icon = L.divIcon({ html: p.html, className: "analog-pin", iconSize: [p.size, p.size], iconAnchor: [p.size / 2, p.size / 2] });
+        const m = L.marker([site.lat, site.lon + off], { icon, zIndexOffset: selected ? 1000 : 0, title: `${site.name} - ${ev.score}%` });
+        const popHtml = `<div style="min-width:210px"><div style="font-size:10px;font-weight:700;color:#5AA9FF;text-transform:uppercase">${esc(site.envLabel)} &bull; ${esc(site.country)}</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-top:2px">${esc(site.name)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.75);margin:4px 0">Similarity: <b style="color:${COLORS[ev.status]}">${ev.score}%</b> &bull; Slope ${site.slope.toFixed(1)}&deg; &bull; Traction ${ev.traction.toFixed(2)}</div>
+          <button onclick="openSimulationModal()" style="width:100%;margin-top:4px;padding:5px 8px;border-radius:8px;background:#0A84FF;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Open Dossier 3D</button></div>`;
+        m.bindPopup(popHtml);
+        m.on("click", () => selectSite(site.id, { fly: false }));
+        if (off === 0) site._primaryMarker = m;
+        m.addTo(markerGroup);
+      }
+    });
+  });
+}
+
+function bestAnalogFor(key) {
+  let best = null, bestScore = -1;
+  appState.sites.forEach(s => { const e = TA.engine.evaluate(s, key); if (e.score > bestScore) { bestScore = e.score; best = s; } });
+  return { site: best, score: bestScore };
+}
+
+function renderPlanetLayers() {
+  if (!planetMarkerGroup) return;
+  planetMarkerGroup.clearLayers();
+  Object.keys(TA.targets).filter(k => TA.targets[k].body === appState.body).forEach(k => {
+    const t = TA.targets[k], sel = k === appState.target, best = bestAnalogFor(k);
+    const p = pinHtml("#0A84FF", best.score + "%", sel, "target-pin");
+    WRAPS.forEach(off => {
+      const m = L.marker([t.lat, t.lon + off], { icon: L.divIcon({ html: p.html, className: "analog-pin", iconSize: [p.size, p.size], iconAnchor: [p.size / 2, p.size / 2] }), zIndexOffset: sel ? 1000 : 0 });
+      m.bindTooltip(`<b>${esc(t.name)}</b><br>Best Earth analog: ${esc(best.site.name)} (${best.score}%)`, { direction: "right", offset: [14, 0], className: "target-tip" });
+      m.on("click", () => selectTarget(k, true));
+      m.addTo(planetMarkerGroup);
+    });
+  });
+}
+
+function renderGlobeLayers() {
+  const planet = appState.basemap === "planet", pins = [], polys = [];
+  if (planet) {
+    Object.keys(TA.targets).filter(k => TA.targets[k].body === appState.body).forEach(k => {
+      const t = TA.targets[k], best = bestAnalogFor(k);
+      pins.push({ id: "t:" + k, lat: t.lat, lon: t.lon, color: "#0A84FF", label: best.score + "%", selected: k === appState.target, title: `${t.name} - best Earth analog ${best.site.name} (${best.score}%)` });
+    });
+  } else {
+    visibleSites().forEach(site => {
+      const ev = E(site);
+      if (appState.layers.markers) pins.push({ id: "s:" + site.id, lat: site.lat, lon: site.lon, color: COLORS[ev.status], label: ev.score + "%", selected: site.id === appState.selectedId, title: `${site.name} - ${ev.score}%` });
+      if (appState.layers.slope) {
+        const sc = site.slope < 8 ? "48,209,88" : site.slope < 15 ? "255,159,10" : "255,69,58";
+        polys.push({ pts: TA.engine.polygon(site, { kind: "slope_heat", radiusKm: 130, offset: [0, 0] }), fill: `rgba(${sc},0.22)`, stroke: `rgba(${sc},0.45)` });
+      }
+      if (appState.layers.hazards) ev.hazards.forEach(hz => {
+        const high = hz.severity === "high";
+        polys.push({ pts: TA.engine.polygon(site, hz), fill: high ? "rgba(255,69,58,0.30)" : "rgba(255,159,10,0.30)", stroke: high ? "#FF453A" : "#FF9F0A" });
+      });
+    });
+  }
+  TA.globe.setPins(pins); TA.globe.setPolys(polys);
+}
+
+function applyLayers() {
+  if (!earthMap) return;
+  if (appState.layers.dem && appState.basemap !== "planet") { if (!earthMap.hasLayer(demLayer)) demLayer.addTo(earthMap); } else if (earthMap.hasLayer(demLayer)) earthMap.removeLayer(demLayer);
+  TA.globe.setTerminator(appState.layers.sun);
+}
+function onLayerToggle() {
+  const L_ = appState.layers;
+  L_.markers = $("lyr_markers").checked; L_.hazards = $("lyr_hazards").checked; L_.slope = $("lyr_slope").checked; L_.dem = $("lyr_dem").checked; L_.sun = $("lyr_sun").checked;
+  if (L_.dem && appState.basemap === "planet") showToast("Elevation shading applies to the Earth map");
+  applyLayers(); scheduleRefresh();
+}
+
+/* ------------------------------------------------------------- selection */
+function nearestLon(map, lon) { const c = map.getCenter().lng; return lon + 360 * Math.round((c - lon) / 360); }
+
+function selectSite(id, opts) {
+  const site = appState.sites.find(s => s.id === id); if (!site) return;
+  appState.selectedId = id; appState.cardClosed = false;
+  if (opts && opts.fly) {
+    focusOnSite(site);
+    if (appState.projection === "2d" && appState.basemap !== "planet" && site._primaryMarker) {
+      setTimeout(() => { if (site._primaryMarker) site._primaryMarker.openPopup(); }, 450);
+    }
+  }
+  refresh();
+}
+function focusOnSite(site) {
+  if (appState.basemap === "planet") { appState.basemap = "satellite"; applyView(); showToast("Switched to Earth imagery to show the analog site"); }
+  if (appState.projection === "3d") TA.globe.flyTo(site.lat, site.lon, Math.max(TA.globe.scale, 1.4));
+  else { earthMap.invalidateSize(); earthMap.flyTo([site.lat, nearestLon(earthMap, site.lon)], Math.max(earthMap.getZoom(), 6), { duration: 1.3 }); }
+}
+function onPinClick(pid) {
+  if (pid.startsWith("t:")) selectTarget(pid.slice(2), true);
+  else selectSite(parseInt(pid.slice(2), 10), { fly: true });
+}
+
+function buildTargetSelect() {
+  const sel = $("targetSelect");
+  sel.innerHTML = Object.keys(TA.targets).filter(k => TA.targets[k].body === appState.body)
+    .map(k => `<option value="${k}" class="bg-[#1C1C1E] text-white">${esc(TA.targets[k].label)}</option>`).join("");
+  sel.value = appState.target;
+}
+function setCelestialBody(body) {
+  const first = Object.keys(TA.targets).find(k => TA.targets[k].body === body);
+  appState.body = body; selectTarget(first, true);
+}
+function onTargetSelect(key) { selectTarget(key, true); }
+function selectTarget(key, user) {
+  const t = TA.targets[key]; if (!t) return;
+  appState.target = key; appState.body = t.body; invalidateEvals();
+  if (user) appState.mission.targetChosen = true;
+  appState.basemap = "planet"; buildTargetSelect(); planetShownBody = planetShownBody === t.body ? planetShownBody : null;
+  applyView();
+  // fly to and highlight the target
+  if (appState.projection === "3d") TA.globe.flyTo(t.lat, t.lon, 1.6);
+  else { planetMap.invalidateSize(); planetMap.flyTo([t.lat, nearestLon(planetMap, t.lon)], t.zoom, { duration: 1.4 }); }
+  showToast(`Target: ${t.name}`);
+}
+
+/* ------------------------------------------------------------ list & card */
+function renderResults() {
+  const list = $("resultsList"), empty = $("emptyState"), ranked = rankedSites();
+  $("resultsCount").textContent = `${ranked.length} sites`; $("resultsCountBadge").textContent = ranked.length;
+  const t = TA.targets[appState.target];
+  $("targetBaselineLabel").textContent = `Baseline: ${t.name} (${bodyName(t.body)})`;
+  if (!ranked.length) { list.innerHTML = ""; empty.classList.remove("hidden"); return; }
+  empty.classList.add("hidden");
+  list.innerHTML = ranked.map((site, i) => {
+    const ev = E(site), sel = site.id === appState.selectedId;
+    const cardClass = sel ? "terra-card-selected" : (!ev.passed ? "terra-card terra-card-discarded" : "terra-card");
+    const col = statusClass(ev.status);
+    let pill;
+    if (ev.status === "viable") pill = `<div class="px-2 py-1 rounded-lg bg-terraGreen/15 border border-terraGreen/30 text-terraGreen text-[10px] font-medium">High viability - passes all active filters</div>`;
+    else if (ev.status === "hazard") pill = `<div class="px-2 py-1 rounded-lg bg-terraRed/15 border border-terraRed/30 text-terraRed text-[10px] font-medium leading-tight"><strong>${esc(site.alertLabel)}:</strong> ${esc(ev.hazards.length ? ev.hazards[0].title : "protected area")}${ev.reasons.length ? " | " + esc(ev.reasons[0]) : ""}</div>`;
+    else pill = `<div class="px-2 py-1 rounded-lg bg-[#FFD60A]/15 border border-[#FFD60A]/30 text-[#FFD60A] text-[10px] font-medium leading-tight"><strong>Caution:</strong> ${esc(ev.reasons[0] || (site.alertType === "medium" ? "managed reserve - " + site.alertLabel : "similarity below 75%"))}</div>`;
+    return `<div onclick="selectSite(${site.id}, {fly:true})" class="p-3.5 rounded-2xl cursor-pointer border transition ${cardClass}">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="min-w-0"><span class="text-[9px] font-bold tracking-wider uppercase text-terraCyan">#${i + 1} &bull; ${esc(site.envLabel)}</span>
+          <h3 class="text-sm font-semibold text-white leading-tight mt-0.5">${esc(site.name)}</h3>
+          <p class="text-[11px] text-white/50">${esc(site.country)} &bull; Elevation ${site.elevation} m</p></div>
+        <div class="text-right flex-shrink-0"><span class="text-lg font-black chip ${col} block">${ev.score}%</span><span class="text-[9px] font-medium text-white/40 block">Similarity</span></div>
+      </div>
+      <div class="my-2">${pill}</div>
+      <div class="grid grid-cols-5 gap-1 text-[10px] bg-white/[0.03] p-1.5 rounded-xl text-center mb-2">
+        <div><span class="text-white/40 block">NDVI</span><strong class="chip">${site.ndvi.toFixed(2)}</strong></div>
+        <div><span class="text-white/40 block">Slope</span><strong class="chip">${site.slope.toFixed(1)}&deg;</strong></div>
+        <div><span class="text-white/40 block">Rough.</span><strong class="chip">${site.roughness.toFixed(2)}</strong></div>
+        <div><span class="text-white/40 block">Humid.</span><strong class="chip">${site.relativeHumidity.toFixed(0)}%</strong></div>
+        <div><span class="text-white/40 block">Traction</span><strong class="chip">${ev.traction.toFixed(2)}</strong></div>
+      </div>
+      <p class="text-[11px] text-white/70 line-clamp-2 leading-relaxed mb-2">${esc(site.desc)}</p>
+      <div class="flex items-center justify-between text-xs pt-1 border-t border-white/5">
+        <button onclick="event.stopPropagation(); selectSite(${site.id}, {fly:true}); openSimulationModal();" class="text-terraCyan hover:underline text-[11px] font-semibold">Open dossier &rsaquo;</button>
+        <span class="text-[10px] text-white/40">${ev.hazards.length} mapped hazard${ev.hazards.length === 1 ? "" : "s"}</span>
+      </div></div>`;
+  }).join("");
+}
+
+function renderSelCard() {
+  const site = selectedSite(), card = $("selCard");
+  if (!site || appState.cardClosed) { card.classList.add("hidden"); return; }
+  const ev = E(site), rank = rankedSites().findIndex(s => s.id === site.id) + 1;
+  card.classList.remove("hidden");
+  $("selRank").textContent = `ANALOG #${rank || "-"} - ${site.envLabel}`;
+  $("selTitle").textContent = site.name; $("selMeta").textContent = `${site.country} - ${site.elevation} m`;
+  const sc = $("selScore"); sc.textContent = ev.score + "%"; sc.className = `text-sm font-bold chip ${statusClass(ev.status)}`;
+  $("selSlope").textContent = `${site.slope.toFixed(1)}\u00B0 / ${site.roughness.toFixed(2)}`; $("selTrac").textContent = ev.traction.toFixed(2);
+  const st = $("selStatus"), map = {
+    viable: ["bg-terraGreen/15 text-terraGreen border-terraGreen/30", "High analog viability"],
+    caution: ["bg-[#FFD60A]/15 text-[#FFD60A] border-[#FFD60A]/30", ev.reasons[0] ? "Caution: " + ev.reasons[0] : "Caution / moderate risk"],
+    hazard: ["bg-terraRed/15 text-terraRed border-terraRed/30", `Protected area / high hazard: ${site.alertLabel}`]
+  };
+  st.className = `mb-2.5 text-[11px] font-medium px-2.5 py-1 rounded-lg border ${map[ev.status][0]}`; st.textContent = map[ev.status][1];
+}
+function closeSelCard() { appState.cardClosed = true; $("selCard").classList.add("hidden"); }
+
+/* ------------------------------------------------- filters, funnel, weights */
+const WEIGHT_LABELS = { slope: "Slope", roughness: "Roughness", thermal: "Thermal swing", elevation: "Elevation", traction: "Traction", humidity: "Humidity" };
+
+function buildWeights() {
+  $("weightsBox").innerHTML = Object.keys(WEIGHT_LABELS).map(k => `
+    <div><div class="flex justify-between text-[11px] mb-1"><span class="text-white/70">${WEIGHT_LABELS[k]}</span><span id="wv_${k}" class="chip text-terraCyan">-</span></div>
+    <input id="w_${k}" type="range" min="0" max="100" value="${TA.state.weights[k]}" oninput="onWeightChange()" class="terra-slider"></div>`).join("");
+  updateWeightLabels();
+}
+function updateWeightLabels() {
+  const w = TA.state.weights, sum = Object.values(w).reduce((a, b) => a + b, 0) || 1;
+  Object.keys(w).forEach(k => { const el = $("wv_" + k); if (el) el.textContent = `${Math.round(w[k] / sum * 100)}%`; });
+}
+function onWeightChange() {
+  Object.keys(WEIGHT_LABELS).forEach(k => { TA.state.weights[k] = parseFloat($("w_" + k).value); });
+  updateWeightLabels(); invalidateEvals(); scheduleRefresh();
+}
+function resetWeights() {
+  Object.assign(TA.state.weights, TA.defaults().weights);
+  Object.keys(WEIGHT_LABELS).forEach(k => { $("w_" + k).value = TA.state.weights[k]; });
+  updateWeightLabels(); invalidateEvals(); refresh(); showToast("Scoring weights reset");
+}
+
+function readFilterControls() {
+  const th = TA.state.thresholds;
+  th.maxNdvi = parseFloat($("f_ndvi").value); th.excludeWater = $("f_water").checked; th.lithologyType = $("f_lith").value;
+  th.maxSlope = parseFloat($("f_slope").value); th.minRoughness = parseFloat($("f_rough").value); th.minThermalAmp = parseFloat($("f_therm").value);
+  th.maxHumidity = parseFloat($("f_hum").value); th.maxElevation = parseFloat($("f_elev").value); th.minTraction = parseFloat($("f_trac").value);
+  th.checkEthics = $("f_ethics").checked;
+}
+function writeFilterControls() {
+  const th = TA.state.thresholds;
+  $("f_ndvi").value = th.maxNdvi; $("f_water").checked = th.excludeWater; $("f_lith").value = th.lithologyType; $("f_slope").value = th.maxSlope;
+  $("f_rough").value = th.minRoughness; $("f_therm").value = th.minThermalAmp; $("f_hum").value = th.maxHumidity; $("f_elev").value = th.maxElevation;
+  $("f_trac").value = th.minTraction; $("f_ethics").checked = th.checkEthics; updateFilterLabels();
+}
+function updateFilterLabels() {
+  const th = TA.state.thresholds;
+  $("v_ndvi").innerHTML = `&le; ${th.maxNdvi.toFixed(2)}`; $("v_slope").innerHTML = `&le; ${th.maxSlope.toFixed(0)}&deg;`; $("v_rough").innerHTML = `&ge; ${th.minRoughness.toFixed(2)}`;
+  $("v_therm").innerHTML = `&ge; ${th.minThermalAmp.toFixed(0)}&deg;C`; $("v_hum").innerHTML = `&le; ${th.maxHumidity.toFixed(0)}%`;
+  $("v_elev").innerHTML = `&le; ${th.maxElevation.toFixed(0)} m`; $("v_trac").innerHTML = `&ge; ${th.minTraction.toFixed(2)}`;
+}
+function onFilterChange() { readFilterControls(); updateFilterLabels(); invalidateEvals(); scheduleRefresh(); }
+function applyNasaPreset() {
+  const d = TA.defaults().thresholds, th = TA.state.thresholds; Object.assign(th, d, { checkEthics: th.checkEthics });
+  writeFilterControls(); invalidateEvals(); refresh(); showToast("NASA fast-discard thresholds applied");
+}
+function resetAllFilters() {
+  Object.assign(TA.state.thresholds, { maxNdvi: 0.5, excludeWater: false, lithologyType: "all", maxSlope: 45, minRoughness: 0.05, minThermalAmp: 5, maxHumidity: 90, maxElevation: 5000, minTraction: 0 });
+  $("searchInput").value = ""; appState.mineralFilter = null; updateMineralChip();
+  writeFilterControls(); invalidateEvals(); refresh(); showToast("All filters opened");
+}
+function onSearch() { $("clearSearchBtn").classList.toggle("hidden", !$("searchInput").value); scheduleRefresh(); }
+function clearSearch() { $("searchInput").value = ""; onSearch(); }
+
+function renderFunnel() {
+  const th = TA.state.thresholds, c = TA.engine.funnel(appState.sites, appState.target), pct = n => Math.round(n / Math.max(1, c.total) * 100);
+  const stages = [
+    { n: c.s1, name: "Biology & water", crit: `NDVI \u2264 ${th.maxNdvi.toFixed(2)}${th.excludeWater ? " and no surface liquid water" : ""}.` },
+    { n: c.s2, name: "Lithology & mineralogy", crit: th.lithologyType === "all" ? "All lithologies accepted." : `Only: ${TA.lithologyLabels[th.lithologyType]}.` },
+    { n: c.s3, name: "Topography & mobility", crit: `Slope \u2264 ${th.maxSlope.toFixed(0)}\u00B0, roughness \u2265 ${th.minRoughness.toFixed(2)}, elevation \u2264 ${th.maxElevation} m, traction \u2265 ${th.minTraction.toFixed(2)}.` },
+    { n: c.s4, name: "Climate", crit: `Humidity \u2264 ${th.maxHumidity.toFixed(0)}% and thermal swing \u2265 ${th.minThermalAmp.toFixed(0)}\u00B0C.` }
+  ];
+  $("funnelStages").innerHTML = stages.map((s, i) => `<div class="bg-white/[0.04] rounded-2xl p-3 border border-white/10 space-y-2">
+    <div class="flex items-center justify-between"><span class="text-xs font-semibold text-white flex items-center gap-1.5"><span class="w-5 h-5 rounded-full bg-terraBlue/20 text-terraCyan flex items-center justify-center text-[10px] font-bold">${i + 1}</span>${s.name}</span>
+    <span class="chip text-xs font-bold text-terraCyan">${s.n} of ${c.total}</span></div>
+    <p class="text-[10px] text-white/50 leading-tight">${s.crit}</p>
+    <div class="w-full h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-terraBlue rounded-full transition-all duration-300" style="width:${pct(s.n)}%"></div></div></div>`).join("");
+  $("funnelFinalCount").textContent = `${c.s4} sites`;
+}
+
+function renderSpectral() {
+  $("spectralList").innerHTML = TA.spectral.map(sig => {
+    const m = TA.engine.spectralMatch(sig, appState.sites, appState.target), active = appState.mineralFilter && appState.mineralFilter.id === sig.id;
+    return `<button onclick="applySpectralFilter('${sig.id}')" class="w-full touch-target px-3.5 py-2.5 rounded-xl border flex items-center justify-between text-xs font-medium text-white transition ${active ? "bg-terraBlue/20 border-terraBlue/60" : "bg-white/5 hover:bg-white/10 border-white/10"}">
+      <span class="text-left">${sig.label}<span class="block text-[10px] text-white/45 font-normal">${m.count} matching site${m.count === 1 ? "" : "s"}</span></span>
+      <span class="chip text-terraCyan font-semibold">${m.count ? m.best + "% match" : "none"}</span></button>`;
+  }).join("");
+}
+function applySpectralFilter(id) {
+  const sig = TA.spectral.find(s => s.id === id);
+  appState.mineralFilter = (appState.mineralFilter && appState.mineralFilter.id === id) ? null : sig;
+  updateMineralChip(); refresh();
+  showToast(appState.mineralFilter ? `Spectral filter: ${sig.label}` : "Spectral filter cleared");
+}
+function updateMineralChip() {
+  const chip = $("mineralChip"); if (!chip) return;
+  chip.classList.toggle("hidden", !appState.mineralFilter);
+  if (appState.mineralFilter) $("mineralChipText").textContent = appState.mineralFilter.label;
+}
+function clearMineralFilter() { appState.mineralFilter = null; updateMineralChip(); refresh(); }
+
+function setInspectorTab(tab) {
+  ["filters", "funnel", "ai", "layers"].forEach(t => {
+    const btn = $("tab" + { filters: "Filters", funnel: "Funnel", ai: "Ai", layers: "Layers" }[t]);
+    btn.className = "touch-target min-h-[30px] rounded-lg font-semibold transition " + (t === tab ? "tab-on" : "tab-off");
+    $("view" + { filters: "Filters", funnel: "Funnel", ai: "Ai", layers: "Layers" }[t]).classList.toggle("hidden", t !== tab);
+  });
+}
+
+/* ------------------------------------------------------------- central refresh */
+function refresh() {
+  if (!earthMap && appState.projection !== "3d") return;
+  renderResults(); renderSelCard(); renderFunnel(); renderSpectral();
+  if (appState.projection === "2d") {
+    if (appState.basemap === "planet") renderPlanetLayers(); else renderEarthLayers();
+  } else renderGlobeLayers();
+  updateMission(); updateDossierLive();
+}
+
+/* --------------------------------------------------------------- dossier & sim */
+function openSimulationModal() {
+  let site = selectedSite();
+  if (!site) {
+    const top = rankedSites()[0]; if (!top) { showToast("No analog available with the current filters"); return; }
+    selectSite(top.id, { fly: false }); site = top; showToast("Showing the top-ranked analog");
+  }
+  $("simulationModal").classList.remove("hidden");
+  appState.mission.hazardReviewed[site.id] = true;
+  fillDossier(site);
+  if (!sim) sim = new TA.RoverSim($("simCanvas"), { onTelemetry: simTelemetry, onFinish: simFinished });
+  sim.setSite(site, TA.targets[appState.target]); sim.speedMult = parseFloat($("simSpeed").value);
+  $("simRunBtn").textContent = "Run traverse"; resetSimBanner(); updateMission();
+}
+function closeSimulationModal() { if (sim) sim.pause(); $("simulationModal").classList.add("hidden"); updateMission(); }
+
+function benchRow(label, siteVal, tgtVal, ok) {
+  return `<div class="flex items-center justify-between gap-2"><span class="flex items-center gap-1.5 text-white/70"><span class="w-1.5 h-1.5 rounded-full" style="background:${ok ? "#30D158" : "#FF453A"}"></span>${label}</span><span class="chip text-white">${siteVal}<span class="text-white/40"> vs ${tgtVal}</span></span></div>`;
+}
+function fillDossier(site) {
+  const ev = E(site), th = TA.state.thresholds, t = TA.targets[appState.target];
+  $("simModalTitle").textContent = `Geophysical Dossier - ${site.name}`;
+  $("simModalSubtitle").textContent = `Benchmark against ${t.name} (${bodyName(t.body)}) | ${site.country}`;
+  const sc = $("ds_score"); sc.textContent = ev.score + "%"; sc.className = `font-bold chip mt-0.5 block ${statusClass(ev.status)}`;
+  $("simStatNdvi").textContent = site.ndvi.toFixed(2); $("ds_elev").textContent = `${site.elevation} m`;
+  $("simStatSlopeRough").textContent = `${site.slope.toFixed(1)}\u00B0 / ${site.roughness.toFixed(2)}`;
+  $("simStatThermal").textContent = `${site.thermalAmplitude.toFixed(0)}\u00B0C`; $("simStatHumidity").textContent = `${site.relativeHumidity.toFixed(0)}%`;
+  $("dossierBench").innerHTML =
+    benchRow("Slope", `${site.slope.toFixed(1)}\u00B0`, `${t.targetSlope}\u00B0 (max ${th.maxSlope}\u00B0)`, site.slope <= th.maxSlope) +
+    benchRow("Roughness", site.roughness.toFixed(2), `${t.targetRough} (min ${th.minRoughness})`, site.roughness >= th.minRoughness) +
+    benchRow("Traction index", ev.traction.toFixed(2), `min ${th.minTraction.toFixed(2)}`, ev.traction >= th.minTraction) +
+    benchRow("Thermal swing", `${site.thermalAmplitude}\u00B0C`, `min ${th.minThermalAmp}\u00B0C`, site.thermalAmplitude >= th.minThermalAmp) +
+    benchRow("Humidity", `${site.relativeHumidity}%`, `max ${th.maxHumidity}%`, site.relativeHumidity <= th.maxHumidity) +
+    benchRow("Elevation", `${site.elevation} m`, `max ${th.maxElevation} m`, site.elevation <= th.maxElevation);
+  $("dossierHazards").innerHTML = ev.hazards.length ? ev.hazards.map(h => `<div class="p-2 rounded-lg border ${h.severity === "high" ? "bg-terraRed/10 border-terraRed/30" : "bg-terraAmber/10 border-terraAmber/30"}"><strong class="${h.severity === "high" ? "text-terraRed" : "text-terraAmber"}">${esc(h.title)}</strong><span class="text-white/65 block leading-snug mt-0.5">${esc(h.text)}</span></div>`).join("")
+    : `<div class="p-2 rounded-lg border bg-terraGreen/10 border-terraGreen/30 text-terraGreen">No mapped hazards for this site.</div>`;
+  $("simModalEthical").textContent = site.alertType === "high"
+    ? `Active alert (${site.alertLabel}): ${site.protectedName || "protected or biologically sensitive zone"}. Non-invasion protocols and permits are mandatory under SDG 15.`
+    : site.alertType === "medium" ? `Managed reserve (${site.alertLabel}): low-impact operations with restricted corridors.`
+    : `Low impact (${site.alertLabel}): open terrain without strict reserve restrictions.`;
+}
+function updateDossierLive() {
+  const site = selectedSite(); if (!site || $("simulationModal").classList.contains("hidden")) return;
+  fillDossier(site);
+}
+
+function simTelemetry(t) {
+  $("t_dist").textContent = `${Math.round(t.distance)} m`; $("t_speed").textContent = `${t.speed.toFixed(2)} m/s`; $("t_tilt").textContent = `${t.tilt.toFixed(0)}\u00B0`;
+  $("t_slip").textContent = `${Math.min(130, t.slip).toFixed(0)}%`; $("t_batt").textContent = `${t.battery.toFixed(0)}%`;
+  $("t_temp").textContent = `${t.temp.toFixed(0)}\u00B0C ${t.night ? "night" : "day"}`; $("t_time").textContent = t.time; $("t_mu").textContent = t.mu.toFixed(2);
+}
+function resetSimBanner() { const b = $("simResult"); b.className = "text-[11px] font-medium px-3 py-2 rounded-xl border bg-white/5 border-white/10 text-white/60"; b.textContent = "Press \"Run traverse\" to drive the rover across a 600 m course generated from this site's slope, roughness, humidity and thermal data."; }
+function simToggleRun() {
+  if (!sim) return;
+  if (sim.running) { sim.pause(); $("simRunBtn").textContent = "Resume"; return; }
+  if (sim.done) { sim.reset(); resetSimBanner(); }
+  sim.start(); $("simRunBtn").textContent = "Pause";
+}
+function simReset() { if (!sim) return; sim.reset(); resetSimBanner(); $("simRunBtn").textContent = "Run traverse"; }
+function simSetSpeed(v) { if (sim) sim.setSpeed(parseFloat(v)); }
+function simFinished(r) {
+  const b = $("simResult"); $("simRunBtn").textContent = "Run again";
+  appState.mission.lastSim[r.siteId] = r;
+  if (r.ok) {
+    appState.mission.simVerified[r.siteId] = true;
+    b.className = "text-[11px] font-medium px-3 py-2 rounded-xl border bg-terraGreen/15 border-terraGreen/30 text-terraGreen"; b.textContent = "Traverse verified. " + r.reason;
+    showToast("Rover traverse verified for this site");
+  } else {
+    delete appState.mission.simVerified[r.siteId];
+    b.className = "text-[11px] font-medium px-3 py-2 rounded-xl border bg-terraRed/15 border-terraRed/30 text-terraRed"; b.textContent = "Traverse failed. " + r.reason;
+    showToast("Rover traverse failed - see Dossier");
+  }
+  updateMission();
+}
+
+/* ---------------------------------------------------------------- mission */
+function computeMission() {
+  const m = appState.mission, site = selectedSite(), ev = site ? E(site) : null, t = TA.targets[appState.target];
+  const steps = [];
+  steps.push({ done: m.targetChosen, state: m.targetChosen ? "done" : "todo", detail: m.targetChosen ? `Target: ${t.name} (${bodyName(t.body)})` : "No target chosen yet - pick a Moon or Mars target in the header.", action: ["Choose target", "focusTarget()"] });
+  let matchDone = false, matchState = "todo", matchDetail = "Select an analog site from the map or the results list.";
+  if (site) {
+    matchDone = ev.score > 75 && ev.passed;
+    matchState = matchDone ? "done" : "warn";
+    matchDetail = matchDone ? `${site.name}: ${ev.score}% and passes all filters.` : ev.score <= 75 ? `${site.name}: ${ev.score}% (needs more than 75%).` : `${site.name}: ${ev.score}% but fails a filter - ${ev.reasons[0]}.`;
+  }
+  steps.push({ done: matchDone, state: matchState, detail: matchDetail, action: ["View results", "showResults()"] });
+  let hzDone = false, hzState = "todo", hzDetail = "Select a site, then open its Dossier or click one of its hazard polygons.";
+  if (site) {
+    const reviewed = !!m.hazardReviewed[site.id], blocker = ev.hazards.find(h => h.severity === "high");
+    if (!reviewed) hzDetail = `Review hazards for ${site.name}: open the Dossier or click a hazard polygon.`;
+    else if (blocker) { hzState = "warn"; hzDetail = `Reviewed - blocked by: ${blocker.title}.`; }
+    else { hzDone = true; hzState = "done"; hzDetail = `Reviewed - no critical restriction for ${site.name}.`; }
+  }
+  steps.push({ done: hzDone, state: hzState, detail: hzDetail, action: ["Open dossier", "openSimulationModal()"] });
+  const simOk = !!(site && m.simVerified[site.id]), last = site && m.lastSim[site.id];
+  steps.push({ done: simOk, state: simOk ? "done" : (last && !last.ok ? "warn" : "todo"), detail: !site ? "Select a site to run the rover simulation." : simOk ? `Traverse completed on ${site.name}.` : last && !last.ok ? `Last run failed: ${last.reason}` : "Run the rover simulation in the Dossier and complete the traverse.", action: ["Open dossier", "openSimulationModal()"] });
+  const ready = steps.every(s => s.done);
+  steps.push({ done: ready, state: ready ? "done" : "todo", detail: ready ? "All checks passed - dossier can be exported." : "Complete steps 1-4 to unlock the export.", action: null });
+  steps.forEach((s, i) => { s.title = TA.missionSteps[i].title; });
+  return { steps, ready };
+}
+function updateMission() {
+  const { steps, ready } = computeMission(), n = steps.filter(s => s.done).length;
+  $("missionBadge").textContent = `${n}/5`;
+  $("missionBadge").className = "chip text-[10px] px-1.5 py-0.5 rounded-full " + (n === 5 ? "bg-terraGreen/25 text-terraGreen" : "bg-white/10 text-white/80");
+  $("exportDossierBtn").disabled = !ready;
+  if (!$("checklistModal").classList.contains("hidden")) renderChecklist(steps, n);
+}
+function renderChecklist(steps, n) {
+  if (!steps) { const c = computeMission(); steps = c.steps; n = steps.filter(s => s.done).length; }
+  $("checklistProgressText").textContent = `${n} of 5 complete`; $("checklistProgressBar").style.width = `${n * 20}%`;
+  const icon = s => s.state === "done" ? `<div class="w-6 h-6 rounded-full bg-terraBlue flex items-center justify-center flex-shrink-0"><svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>`
+    : s.state === "warn" ? `<div class="w-6 h-6 rounded-full bg-terraAmber/20 border border-terraAmber/50 text-terraAmber flex items-center justify-center flex-shrink-0 text-xs font-bold">!</div>`
+    : `<div class="w-6 h-6 rounded-full border border-white/25 flex-shrink-0"></div>`;
+  $("checklistItemsContainer").innerHTML = steps.map((s, i) => `<div class="p-3 rounded-2xl border ${s.state === "done" ? "bg-terraBlue/10 border-terraBlue/30" : "bg-white/5 border-white/10"} flex items-start gap-3">
+    ${icon(s)}<div class="min-w-0 flex-1"><div class="text-xs font-semibold ${s.done ? "text-white" : "text-white/90"}">${i + 1}. ${s.title}</div>
+    <div class="text-[11px] mt-0.5 ${s.state === "warn" ? "text-terraAmber" : "text-white/55"} leading-snug">${esc(s.detail)}</div></div>
+    ${s.action && !s.done ? `<button onclick="${s.action[1]}" class="touch-target min-h-[28px] px-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-[10px] font-semibold text-white flex-shrink-0 transition">${s.action[0]}</button>` : ""}</div>`).join("");
+}
+function openChecklistModal() { $("checklistModal").classList.remove("hidden"); updateMission(); }
+function closeChecklistModal() { $("checklistModal").classList.add("hidden"); }
+function focusTarget() { closeChecklistModal(); $("targetSelect").focus(); showToast("Pick a target from the header selector"); }
+function showResults() { closeChecklistModal(); if (!appState.rightOpen) toggleRightSidebar(); showToast("Select a site in the results list"); }
+
+function exportDossier() {
+  const { ready, steps } = computeMission(), site = selectedSite();
+  if (!ready || !site) { showToast("Complete mission steps 1-4 to unlock the export"); openChecklistModal(); return; }
+  const ev = E(site), t = TA.targets[appState.target], last = appState.mission.lastSim[site.id];
+  const dossier = {
+    generator: "TerraAnalog", generatedAt: new Date().toISOString(),
+    target: { key: appState.target, name: t.name, body: t.body, lat: t.lat, lon: t.lon },
+    analog: Object.assign({}, site), similarityPct: ev.score, passedFilters: ev.passed, status: ev.status, tractionIndex: +ev.traction.toFixed(3),
+    hazards: ev.hazards.map(h => ({ title: h.title, severity: h.severity, text: h.text })),
+    roverSimulation: last ? { verified: last.ok, distance_m: Math.round(last.distance), battery_pct: +last.battery.toFixed(1), max_tilt_deg: +last.maxTilt.toFixed(1), summary: last.reason } : null,
+    thresholds: Object.assign({}, TA.state.thresholds), weights: Object.assign({}, TA.state.weights),
+    checklist: steps.map(s => ({ step: s.title, done: s.done, detail: s.detail }))
+  };
+  downloadFile(JSON.stringify(dossier, null, 2), `terraanalog_dossier_${site.name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}.json`, "application/json");
+  showToast("Dossier exported");
+}
+function downloadFile(content, name, type) {
+  const url = URL.createObjectURL(new Blob([content], { type })), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function exportGeoJSON() {
+  const t = TA.targets[appState.target];
+  const gj = { type: "FeatureCollection", metadata: { engine: "TerraAnalog", generatedAt: new Date().toISOString(), target: appState.target, body: t.body, candidateCount: appState.sites.length },
+    features: appState.sites.map(s => { const e = E(s); return { type: "Feature", geometry: { type: "Point", coordinates: [s.lon, s.lat, s.elevation] },
+      properties: { id: s.id, name: s.name, country: s.country, environment: s.env, slope_mean_deg: s.slope, surface_roughness: s.roughness, ndvi: s.ndvi, liquid_water_present: s.liquidWater, thermal_amplitude_degC: s.thermalAmplitude, relative_humidity_pct: s.relativeHumidity, lithology_type: s.lithology, minerals: s.minerals, similarity_pct: e.score, traction_index: +e.traction.toFixed(3), status: e.status, passed_filters: e.passed, discard_reasons: e.reasons, hazards: e.hazards.map(h => h.title) } }; }) };
+  downloadFile(JSON.stringify(gj, null, 2), `terraanalog_${appState.target}_candidates.geojson`, "application/geo+json");
+  showToast("GeoJSON exported");
+}
+
+/* ------------------------------------------------------------ data sources */
+function openDataModal() { $("dataModal").classList.remove("hidden"); renderDataScope(); setDataTab("scope"); updateIngestSummary(); }
+function closeDataModal() { $("dataModal").classList.add("hidden"); }
+function updateIngestSummary() { $("ingestSummaryStats").textContent = `Active catalog: ${appState.sites.length} analog sites in memory`; }
+function renderDataScope() {
+  $("dsScopeList").innerHTML = TA.dataSources.map(g => `<div><div class="text-[10px] font-bold uppercase tracking-wider text-terraCyan mb-1.5">${g.group}</div><div class="space-y-1.5">` +
+    g.items.map(it => `<div class="bg-white/5 border border-white/10 rounded-xl p-2.5"><div class="flex items-center justify-between gap-2"><span class="font-semibold text-white">${esc(it.name)}</span>
+      <span class="chip text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${it.mode === "live" ? "bg-terraGreen/15 text-terraGreen" : "bg-white/10 text-white/70"}">${it.mode === "live" ? "LIVE" : "EMBEDDED"}</span></div>
+      <div class="text-[10px] text-white/50 mt-0.5">${esc(it.provider)} &bull; ${esc(it.scope)}</div><div class="text-[11px] text-white/70 mt-0.5">Used for: ${esc(it.use)}</div></div>`).join("") + `</div></div>`).join("");
+}
+function setDataTab(tab) {
+  const map = { scope: "Scope", packs: "Packs", file: "File", paste: "Paste" };
+  Object.keys(map).forEach(k => {
+    $("dsTab" + map[k]).className = "touch-target min-h-[32px] rounded-lg font-semibold transition " + (k === tab ? "tab-on" : "tab-off");
+    $("dsView" + map[k]).classList.toggle("hidden", k !== tab);
+  });
+  $("dsTemplate").classList.toggle("hidden", tab !== "file" && tab !== "paste");
+}
+function normalizeSite(r) {
+  const num = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+  const lat = num(r.lat ?? r.latitude, NaN), lon = num(r.lon ?? r.longitude, NaN);
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  const minerals = Array.isArray(r.minerals) ? r.minerals : String(r.minerals || "Basalt|Olivine").split("|").map(m => m.trim()).filter(Boolean);
+  return { id: appState.nextId++, name: r.name || `Imported site ${appState.nextId}`, country: r.country || "Unknown", env: r.env || "Volcanic", envLabel: r.envLabel || r.envlabel || "Imported analog",
+    lat, lon, elevation: num(r.elevation, 1000), slope: num(r.slope, 6), roughness: num(r.roughness, 0.5), ndvi: num(r.ndvi, 0.04),
+    liquidWater: r.liquidWater === true || String(r.liquid_water || r.liquidwater || r.liquidWater).toLowerCase() === "true",
+    thermalAmplitude: num(r.thermalAmplitude ?? r.thermal_amplitude ?? r.thermalamplitude ?? r.thermal, 20), relativeHumidity: num(r.relativeHumidity ?? r.relative_humidity ?? r.relativehumidity ?? r.humidity, 20),
+    lithology: r.lithology || "basalt_volcanic", minerals: minerals.length ? minerals : ["Basalt"], coverage: 100, alertType: ["high", "medium", "low"].includes(r.alertType) ? r.alertType : "low", alertLabel: r.alertLabel || "Imported", protectedName: r.protectedName || "", desc: r.desc || r.description || "Site imported through the Data Sources panel." };
+}
+function addSites(list) {
+  let added = 0;
+  list.forEach(r => { const s = normalizeSite(r); if (s && !appState.sites.some(x => Math.abs(x.lat - s.lat) < 0.05 && Math.abs(x.lon - s.lon) < 0.05)) { appState.sites.push(s); added++; } });
+  invalidateEvals(); refresh(); updateIngestSummary(); return added;
+}
+function ingestPresetCatalog(id) {
+  const list = TA.presets[id]; if (!list) return;
+  let added = 0;
+  list.forEach(r => { if (!appState.sites.some(s => s.id === r.id || (Math.abs(s.lat - r.lat) < 0.05 && Math.abs(s.lon - r.lon) < 0.05))) { appState.sites.push(Object.assign({}, r)); added++; } });
+  invalidateEvals(); refresh(); updateIngestSummary(); showToast(added ? `Catalog loaded: +${added} sites` : "Catalog already loaded");
+}
+function parseCsv(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error("The CSV needs a header and at least one data row.");
+  const d = lines[0].includes(";") ? ";" : ",", head = lines[0].split(d).map(h => h.trim().toLowerCase().replace(/"/g, ""));
+  return lines.slice(1).map(l => { const c = l.split(d).map(x => x.trim().replace(/"/g, "")), o = {}; head.forEach((h, i) => { o[h] = c[i]; }); return o; });
+}
+function ingestText(text, filename) {
+  const t = text.trim(); let rows;
+  if (t.startsWith("[") || t.startsWith("{")) {
+    const p = JSON.parse(t);
+    if (p.features) rows = p.features.map(f => Object.assign({}, f.properties || {}, { lon: f.geometry && f.geometry.coordinates[0], lat: f.geometry && f.geometry.coordinates[1] }));
+    else rows = Array.isArray(p) ? p : [p];
+  } else rows = parseCsv(t);
+  const n = addSites(rows);
+  showToast(`${filename || "Text"} processed: +${n} sites` + (n < rows.length ? ` (${rows.length - n} skipped: invalid or duplicate)` : ""));
+  return n;
+}
+function handleFileSelect(e) { if (e.target.files[0]) processUploadedFile(e.target.files[0]); }
+function handleDragOver(e) { e.preventDefault(); $("dropZone").classList.add("border-terraBlue"); }
+function handleDragLeave(e) { e.preventDefault(); $("dropZone").classList.remove("border-terraBlue"); }
+function handleFileDrop(e) { e.preventDefault(); handleDragLeave(e); if (e.dataTransfer.files.length) processUploadedFile(e.dataTransfer.files[0]); }
+function processUploadedFile(file) {
+  const r = new FileReader();
+  r.onload = ev => { try { const n = ingestText(ev.target.result, file.name); $("fileUploadStatus").classList.remove("hidden"); $("fileUploadStatusText").textContent = `${n} sites added from ${file.name}`; } catch (err) { showToast("Could not process file: " + err.message); } };
+  r.readAsText(file);
+}
+function loadSamplePaste() {
+  $("pasteInput").value = `name,country,lat,lon,elevation,slope,roughness,ndvi,liquid_water,thermal_amplitude,relative_humidity,lithology,minerals
+"Mauna Kea Ridge","USA",19.9,-155.5,4100,6.2,0.74,0.03,false,18,15,"basalt_volcanic","Basalt|Olivine"
+"Lonar Rim","India",20.0,76.5,560,9.5,0.65,0.05,false,22,25,"impact_crater","Maskelynite|Basalt"`;
+}
+function processPastedData() {
+  const t = $("pasteInput").value.trim(); if (!t) { showToast("Paste CSV text or a JSON array first"); return; }
+  try { ingestText(t, "Pasted text"); closeDataModal(); } catch (err) { showToast("Could not process text: " + err.message); }
+}
+function downloadCsvTemplate() {
+  downloadFile(`name,country,lat,lon,elevation,slope,roughness,ndvi,liquid_water,thermal_amplitude,relative_humidity,lithology,minerals,desc
+"Example Atacama","Chile",-24.08,-69.95,1200,4.2,0.58,0.02,false,28,8,"evaporite_salar","Halite|Perchlorates","Hyper-arid Mars analog."
+"Example Timanfaya","Spain",29.02,-13.73,320,6.2,0.88,0.04,false,14,42,"basalt_volcanic","Basalt|Olivine","Volcanic malpais analog."`, "terraanalog_template.csv", "text/csv");
+  showToast("CSV template downloaded");
+}
+
+/* ----------------------------------------------------------------- UI chrome */
+function openGuideModal() { $("guideModal").classList.remove("hidden"); }
+function closeGuideModal() { $("guideModal").classList.add("hidden"); }
+function toggleLeftSidebar() { appState.leftOpen = !appState.leftOpen; $("leftSidebar").style.transform = appState.leftOpen ? "translateX(0)" : "translateX(-115%)"; }
+function toggleRightSidebar() { appState.rightOpen = !appState.rightOpen; $("rightSidebar").style.transform = appState.rightOpen ? "translateX(0)" : "translateX(115%)"; $("expandRightBtn").classList.toggle("hidden", appState.rightOpen); }
+
+/* --------------------------------------------------------------------- init */
+window.addEventListener("resize", () => { TA.globe.resize(); if (earthMap) earthMap.invalidateSize(); if (planetMap) planetMap.invalidateSize(); });
+window.addEventListener("keydown", e => { if (e.key === "Escape") { closeSimulationModal(); closeChecklistModal(); closeGuideModal(); closeDataModal(); } });
+
+window.addEventListener("load", () => {
+  $("f_lith").innerHTML = Object.keys(TA.lithologyLabels).map(k => `<option value="${k}" class="bg-[#1C1C1E]">${TA.lithologyLabels[k]}</option>`).join("");
+  buildWeights(); buildTargetSelect(); writeFilterControls(); setInspectorTab("filters"); setDataTab("scope");
+  if (typeof L === "undefined") { showToast("Map library failed to load; using the 3D globe only"); appState.projection = "3d"; }
+  else initEarthMap();
+  TA.globe.init($("satelliteCanvas"), $("pinsLayer"), {
+    onPinClick, onZoom: updateZoomBadge,
+    onStatus: (body, st) => showToast(st === "ready" ? `3D globe imagery loaded: ${body === "earth" ? "Earth" : bodyName(body)}` : "Globe imagery unavailable (check network)")
+  });
+  if (window.innerWidth < 900) { toggleLeftSidebar(); toggleRightSidebar(); }
+  applyView();
 });
