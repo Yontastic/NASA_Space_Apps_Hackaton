@@ -29,7 +29,21 @@ class BaseSourceAdapter:
         }
         
     def search(self, query: str = "", bbox: Optional[List[float]] = None) -> List[Dict[str, Any]]:
-        raise NotImplementedError
+        # Default catalog search fallback across open data assets
+        q = (query or "").lower()
+        return [
+            {
+                "source_id": self.source_id,
+                "provider": self.provider_name,
+                "base_url": self.base_url,
+                "access_type": self.access_type,
+                "license": self.license_info,
+                "status": self.status,
+                "query": query,
+                "bbox": bbox,
+                "description": f"Open geospatial dataset catalog entry for {self.provider_name}"
+            }
+        ]
 
 class NasaCmrAdapter(BaseSourceAdapter):
     """NASA Common Metadata Repository (CMR) Earthdata Search Catalog Adapter"""
@@ -92,6 +106,13 @@ class NasaGibsAdapter(BaseSourceAdapter):
             }
         ]
 
+    def search(self, query: str = "", bbox: Optional[List[float]] = None) -> List[Dict[str, Any]]:
+        layers = self.get_layer_capabilities()
+        if not query:
+            return layers
+        q = query.lower()
+        return [l for l in layers if q in l["layer_id"].lower() or q in l["title"].lower()]
+
 class NasaPdsAdapter(BaseSourceAdapter):
     """NASA Planetary Data System (PDS) Geosciences & Imaging Nodes"""
     source_id = "src_nasa_pds"
@@ -100,6 +121,13 @@ class NasaPdsAdapter(BaseSourceAdapter):
     access_type = "REST_API"
     license_info = "NASA Planetary Science Division Open Access"
     requires_auth = False
+    
+    def search(self, query: str = "", bbox: Optional[List[float]] = None) -> List[Dict[str, Any]]:
+        all_products = self.get_lunar_products() + self.get_mars_products()
+        if not query:
+            return all_products
+        q = query.lower()
+        return [p for p in all_products if q in p["dataset_id"].lower() or q in p["product"].lower() or q in p["mission"].lower()]
     
     def get_lunar_products(self) -> List[Dict[str, Any]]:
         return [

@@ -113,6 +113,15 @@ class TerraAnalogAPI:
             
         # Sort by physical similarity descending
         results.sort(key=lambda x: x.physical_similarity, reverse=True)
+
+        # Persist run and results into database
+        try:
+            DatabaseManager.insert_similarity_run(
+                {"run_id": run_id, "target_id": target_id, "parameters": parameters or {}},
+                results
+            )
+        except Exception:
+            pass
         
         return {
             "run_id": run_id,
@@ -194,6 +203,10 @@ class TerraAnalogAPI:
             custom_params=params or {},
             measurements=measurements
         )
+        try:
+            DatabaseManager.insert_simulation_run(sim_run)
+        except Exception:
+            pass
         return asdict(sim_run)
 
     def get_ar_scene(self, region_id: str) -> Dict[str, Any]:

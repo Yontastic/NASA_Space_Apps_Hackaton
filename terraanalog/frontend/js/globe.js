@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TerraAnalog - 3D Oblate Spheroid (Esferoide Oblato) Planetary Engine
  * 
  * Mathematical Model:
@@ -89,6 +89,22 @@ class OblateSpheroidGlobe {
       [[-70, -180], [-65, -90], [-68, 0], [-65, 90], [-70, 180]]
     ];
 
+    // Mars surface landmark features (volcanoes, canyons, basins)
+    this.marsLandmarks = [
+      { name: "Olympus Mons", lat: 18.65, lon: -133.8, type: "volcano", r: 18 },
+      { name: "Valles Marineris", lat: -14.0, lon: -59.0, type: "canyon", r: 26 },
+      { name: "Syrtis Major", lat: 8.4, lon: 69.5, type: "shield", r: 16 },
+      { name: "Hellas Planitia", lat: -42.7, lon: 70.0, type: "basin", r: 24 }
+    ];
+
+    // Moon surface maria features (dark basalt plains)
+    this.moonLandmarks = [
+      { name: "Mare Tranquillitatis", lat: 8.5, lon: 31.4, r: 20 },
+      { name: "Oceanus Procellarum", lat: 18.4, lon: -57.4, r: 28 },
+      { name: "Mare Imbrium", lat: 32.8, lon: -15.6, r: 22 },
+      { name: "Mare Serenitatis", lat: 28.0, lon: 17.5, r: 18 }
+    ];
+
     this.initEvents();
   }
 
@@ -146,6 +162,12 @@ class OblateSpheroidGlobe {
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
       this.handleClick(clickX, clickY);
+    });
+
+    window.addEventListener('resize', () => {
+      if (this.canvas && this.canvas.parentElement && this.canvas.parentElement.style.display !== 'none') {
+        this.render();
+      }
     });
   }
 
@@ -316,8 +338,9 @@ class OblateSpheroidGlobe {
       ctx.stroke();
     }
 
-    // 4. Render Continents on Oblate Spheroid (if Earth)
+    // 4. Render Surface Landmarks & Terrains per Planetary Body
     if (this.currentBodyKey === "Earth") {
+      // Earth Continents
       this.continents.forEach(cont => {
         ctx.beginPath();
         let anyVisible = false;
@@ -340,46 +363,121 @@ class OblateSpheroidGlobe {
           ctx.fill();
         }
       });
+    } else if (this.currentBodyKey === "Mars" && this.marsLandmarks) {
+      // Mars Surface Geological Features
+      this.marsLandmarks.forEach(lm => {
+        const p = this.projectOblate(lm.lat, lm.lon, radius, width, height);
+        if (p.visible) {
+          ctx.save();
+          if (lm.type === "volcano") {
+            ctx.fillStyle = "rgba(180, 83, 9, 0.75)";
+            ctx.strokeStyle = "rgba(251, 146, 60, 0.8)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, lm.r * p.scale * 0.45, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, lm.r * p.scale * 0.18, 0, Math.PI * 2);
+            ctx.fillStyle = "#1e0e08"; ctx.fill();
+          } else if (lm.type === "canyon") {
+            ctx.strokeStyle = "rgba(120, 30, 10, 0.9)";
+            ctx.lineWidth = 3.5 * p.scale;
+            ctx.beginPath();
+            ctx.moveTo(p.x - 22 * p.scale, p.y - 4);
+            ctx.lineTo(p.x + 24 * p.scale, p.y + 6);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = "rgba(90, 25, 12, 0.65)";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, lm.r * p.scale * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.fillStyle = "rgba(254, 215, 170, 0.85)";
+          ctx.font = "9px -apple-system, sans-serif";
+          ctx.fillText(lm.name, p.x + 8, p.y - 4);
+          ctx.restore();
+        }
+      });
+    } else if (this.currentBodyKey === "Moon" && this.moonLandmarks) {
+      // Moon Lunar Maria (Dark Basalt Plains)
+      this.moonLandmarks.forEach(lm => {
+        const p = this.projectOblate(lm.lat, lm.lon, radius, width, height);
+        if (p.visible) {
+          ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+          ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, lm.r * p.scale * 0.45, 0, Math.PI * 2);
+          ctx.fill(); ctx.stroke();
+          ctx.fillStyle = "rgba(203, 213, 225, 0.75)";
+          ctx.font = "9px -apple-system, sans-serif";
+          ctx.fillText(lm.name, p.x + 6, p.y - 2);
+        }
+      });
     }
 
-    // 5. Render Candidate Analog Sites in 3D
+    // 5. Render Candidate Analog Sites (Earth) or Target Landing Sites (Moon/Mars) in 3D
     this.renderedSites = [];
-    const candidates = (typeof TERRA_DATA !== "undefined" && TERRA_DATA.candidates) ? TERRA_DATA.candidates : [];
+    let sitesToRender = [];
+    if (this.currentBodyKey === "Earth") {
+      sitesToRender = (typeof TERRA_DATA !== "undefined" && TERRA_DATA.candidates) ? TERRA_DATA.candidates : [];
+    } else {
+      sitesToRender = (typeof TERRA_DATA !== "undefined" && TERRA_DATA.targets) 
+        ? TERRA_DATA.targets.filter(t => t.body === this.currentBodyKey) 
+        : [];
+    }
 
-    candidates.forEach(c => {
+    sitesToRender.forEach(c => {
       const p = this.projectOblate(c.lat, c.lon, radius, width, height);
       if (p.visible) {
-        const isSelected = this.app && this.app.selectedCandidate && this.app.selectedCandidate.id === c.id;
+        const isSelected = (this.currentBodyKey === "Earth")
+          ? (this.app && this.app.selectedCandidate && this.app.selectedCandidate.id === c.id)
+          : (this.app && this.app.currentTarget && this.app.currentTarget.id === c.id);
 
-        // Save screen coords for click detection
         this.renderedSites.push({
           candidate: c,
           x: p.x,
           y: p.y,
-          radius: isSelected ? 9 : 6
+          radius: isSelected ? 12 : 8
         });
 
         // Altitude beacon pin
-        const pHigh = this.projectOblate(c.lat, c.lon, radius * 1.08, width, height);
-        ctx.strokeStyle = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.6)";
-        ctx.lineWidth = 1.5;
+        const pHigh = this.projectOblate(c.lat, c.lon, radius * 1.09, width, height);
+        let pinColor = "#007aff"; // Apple Blue
+        if (this.currentBodyKey === "Earth") {
+          const evalRes = (this.app && this.app.evaluationResults) ? this.app.evaluationResults.find(r => r.candidateId === c.id) : null;
+          const score = evalRes ? evalRes.physicalSimilarity : 70;
+          if (score >= 85) pinColor = "#34c759";      // Apple Green
+          else if (score >= 70) pinColor = "#007aff"; // Apple Blue
+          else if (score >= 50) pinColor = "#ff9f0a"; // Apple Orange
+          else pinColor = "#ff453a";                  // Apple Red
+        } else if (this.currentBodyKey === "Mars") {
+          pinColor = "#ff9f0a";
+        } else {
+          pinColor = "#007aff";
+        }
+
+        ctx.strokeStyle = isSelected ? "#ffffff" : pinColor;
+        ctx.lineWidth = isSelected ? 2.2 : 1.4;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(pHigh.x, pHigh.y);
         ctx.stroke();
 
-        // Pulsing head circle
-        ctx.fillStyle = isSelected ? "#38bdf8" : "#fbbf24";
+        // Pulsing head circle / beacon
+        ctx.fillStyle = pinColor;
         ctx.beginPath();
-        ctx.arc(pHigh.x, pHigh.y, isSelected ? 6 : 4, 0, Math.PI * 2);
+        ctx.arc(pHigh.x, pHigh.y, isSelected ? 7 : 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = isSelected ? 2 : 1.2;
         ctx.stroke();
 
-        // Site Name Label
-        ctx.fillStyle = isSelected ? "#ffffff" : "#cbd5e1";
-        ctx.font = isSelected ? "bold 11px sans-serif" : "10px sans-serif";
+        // Site Name Label & Match Pill
+        ctx.fillStyle = isSelected ? "#ffffff" : "#e2e8f0";
+        ctx.font = isSelected 
+          ? "bold 11px -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" 
+          : "10px -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
         ctx.fillText(c.name, pHigh.x + 8, pHigh.y + 3);
       }
     });
@@ -393,7 +491,6 @@ class OblateSpheroidGlobe {
 
   renderStars(ctx, width, height) {
     ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-    // Deterministic pseudo-stars
     for (let i = 0; i < 45; i++) {
       const sx = ((i * 137.5) % width);
       const sy = ((i * 293.7) % height);
@@ -403,27 +500,28 @@ class OblateSpheroidGlobe {
   }
 
   renderTerminator(ctx, width, height, radius, bScale) {
-    // Semi-transparent night shadow on eastern limb
-    const shadowGrad = ctx.createLinearGradient(
-      width / 2 - radius * 0.3 * this.zoom, 0,
-      width / 2 + radius * 1.05 * this.zoom, 0
-    );
-    shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
-    shadowGrad.addColorStop(0.65, "rgba(2, 6, 23, 0.55)");
-    shadowGrad.addColorStop(1, "rgba(2, 6, 23, 0.88)");
-
     ctx.save();
     ctx.translate(width / 2, height / 2);
     ctx.beginPath();
     ctx.ellipse(0, 0, radius * this.zoom, radius * bScale * this.zoom, 0, 0, Math.PI * 2);
     ctx.clip();
 
+    // Night shadow on the dark hemisphere
+    const shadowGrad = ctx.createLinearGradient(
+      -radius * 0.25 * this.zoom, 0,
+      radius * 1.05 * this.zoom, 0
+    );
+    shadowGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+    shadowGrad.addColorStop(0.55, "rgba(2, 6, 23, 0.55)");
+    shadowGrad.addColorStop(1, "rgba(2, 6, 23, 0.88)");
+
     ctx.fillStyle = shadowGrad;
     ctx.fillRect(-radius * this.zoom, -radius * this.zoom, radius * 2 * this.zoom, radius * 2 * this.zoom);
     ctx.restore();
   }
 
-  handleClick(clickX, clickY) {
+
+    handleClick(clickX, clickY) {
     if (!this.renderedSites) return;
     for (let i = this.renderedSites.length - 1; i >= 0; i--) {
       const item = this.renderedSites[i];

@@ -316,8 +316,16 @@ class DatabaseManager:
         rows = []
         for r in cursor.fetchall():
             d = dict(r)
-            d["bounding_box"] = json.loads(d["bounding_box"])
-            d["geometry_geojson"] = json.loads(d["geometry_geojson"])
+            if isinstance(d.get("bounding_box"), str):
+                try:
+                    d["bounding_box"] = json.loads(d["bounding_box"])
+                except Exception:
+                    pass
+            if isinstance(d.get("geometry_geojson"), str):
+                try:
+                    d["geometry_geojson"] = json.loads(d["geometry_geojson"])
+                except Exception:
+                    pass
             rows.append(d)
         conn.close()
         return rows
@@ -332,8 +340,16 @@ class DatabaseManager:
         if not row:
             return None
         d = dict(row)
-        d["bounding_box"] = json.loads(d["bounding_box"])
-        d["geometry_geojson"] = json.loads(d["geometry_geojson"])
+        if isinstance(d.get("bounding_box"), str):
+            try:
+                d["bounding_box"] = json.loads(d["bounding_box"])
+            except Exception:
+                pass
+        if isinstance(d.get("geometry_geojson"), str):
+            try:
+                d["geometry_geojson"] = json.loads(d["geometry_geojson"])
+            except Exception:
+                pass
         return d
 
     @staticmethod
@@ -454,3 +470,55 @@ class DatabaseManager:
         conn.commit()
         conn.close()
         return event.id
+
+    @staticmethod
+    def insert_similarity_run(run_data: Dict[str, Any], results: List[SimilarityResult]) -> str:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO similarity_runs (id, target_profile_id, algorithm_version, parameters_json, candidate_count, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            run_data.get("run_id", generate_id("simrun")),
+            run_data.get("target_id", ""),
+            run_data.get("algorithm_version", "2.1.0-gaussian"),
+            json.dumps(run_data.get("parameters", {})),
+            len(results),
+            "completed",
+            now_iso()
+        ))
+        for res in results:
+            cursor.execute("""
+                INSERT INTO similarity_results (
+                    id, run_id, region_id, region_name, target_profile_id, target_name, target_body,
+                    physical_similarity, data_coverage, confidence, classification,
+                    operational_feasibility, environmental_risk_level, dimension_scores_json,
+                    variable_breakdown_json, missing_variables_json, explanation_json, is_provisional
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                res.id, res.run_id, res.region_id, res.region_name, res.target_profile_id,
+                res.target_name, res.target_body, res.physical_similarity, res.data_coverage,
+                res.confidence, res.classification, res.operational_feasibility,
+                res.environmental_risk_level, json.dumps(res.dimension_scores),
+                json.dumps(res.variable_breakdown), json.dumps(res.missing_variables),
+                json.dumps(res.explanation), 1 if res.is_provisional else 0
+            ))
+        conn.commit()
+        conn.close()
+        return run_data.get("run_id", "")
+
+    @staticmethod
+    def insert_simulation_run(sim: SimulationRun) -> str:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO simulation_runs (id, region_id, scenario_name, scenario_type, parameters_json, output_json, model_version, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            sim.id, sim.region_id, sim.scenario_name, sim.scenario_type,
+            json.dumps(sim.parameters_json), json.dumps(sim.output_json),
+            sim.model_version, sim.status, sim.created_at
+        ))
+        conn.commit()
+        conn.close()
+        return sim.id

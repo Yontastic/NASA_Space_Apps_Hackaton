@@ -19,10 +19,21 @@ class SimulationEngine:
         """
         Execute testing scenario based on measured terrestrial analog variables.
         """
-        slope = float(measurements.get("slope_mean", {}).get("value_numeric", 8.0))
-        roughness = float(measurements.get("roughness", {}).get("value_numeric", 0.3))
-        temp_delta = float(measurements.get("temperature_diurnal_range", {}).get("value_numeric", 30.0))
-        radiation = float(measurements.get("radiation_flux", {}).get("value_numeric", 1.8))
+        def _safe_val(feat_key: str, default: float) -> float:
+            meas = measurements.get(feat_key)
+            if isinstance(meas, dict):
+                v = meas.get("value_numeric")
+                if v is not None:
+                    try:
+                        return float(v)
+                    except (ValueError, TypeError):
+                        pass
+            return default
+
+        slope = _safe_val("slope_mean", 8.0)
+        roughness = _safe_val("roughness", 0.3)
+        temp_delta = _safe_val("temperature_diurnal_range", 30.0)
+        radiation = _safe_val("radiation_flux", 1.8)
         
         output = {}
         

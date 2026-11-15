@@ -52,29 +52,36 @@ class TerraAnalogHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         query_params = urllib.parse.parse_qs(parsed.query)
 
         # 1. API ROUTES (/api/v1/...)
-        if path.startswith("/api/v1/"):
-            subpath = path[len("/api/v1"):]
+        if path.startswith("/api/v1"):
+            subpath = path[len("/api/v1"):].rstrip("/")
+            parts = [p for p in subpath.split("/") if p]
 
-            if subpath == "/health":
+            if not parts or parts == ["health"]:
                 self._send_json_response(200, api_controller.get_health())
                 return
 
-            elif subpath == "/sources":
+            elif parts == ["sources"]:
                 self._send_json_response(200, api_controller.get_sources())
                 return
 
-            elif subpath == "/datasets":
+            elif len(parts) == 3 and parts[0] == "sources" and parts[2] == "search":
+                src_id = parts[1]
+                q = query_params.get("query", [""])[0]
+                self._send_json_response(200, api_controller.search_source(src_id, query=q))
+                return
+
+            elif parts == ["datasets"]:
                 body = query_params.get("body", [None])[0]
                 self._send_json_response(200, api_controller.get_datasets(body=body))
                 return
 
-            elif subpath == "/regions":
+            elif parts == ["regions"]:
                 region_type = query_params.get("region_type", [None])[0]
                 self._send_json_response(200, api_controller.get_candidate_regions(region_type=region_type))
                 return
 
-            elif subpath.startswith("/regions/") and not subpath.endswith("/environment") and not subpath.endswith("/scene"):
-                reg_id = subpath.split("/")[2]
+            elif len(parts) == 2 and parts[0] == "regions":
+                reg_id = parts[1]
                 reg = api_controller.get_candidate_region_by_id(reg_id)
                 if reg:
                     self._send_json_response(200, reg)
@@ -82,18 +89,23 @@ class TerraAnalogHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     self._send_json_response(404, {"error": "Candidate region not found"})
                 return
 
-            elif subpath.startswith("/regions/") and subpath.endswith("/environment"):
-                reg_id = subpath.split("/")[2]
+            elif len(parts) == 3 and parts[0] == "regions" and parts[2] == "environment":
+                reg_id = parts[1]
                 self._send_json_response(200, api_controller.assess_environment(reg_id))
                 return
 
-            elif subpath == "/targets":
+            elif len(parts) == 3 and parts[0] == "regions" and parts[2] == "scene":
+                reg_id = parts[1]
+                self._send_json_response(200, api_controller.get_ar_scene(reg_id))
+                return
+
+            elif parts == ["targets"]:
                 body = query_params.get("body", [None])[0]
                 self._send_json_response(200, api_controller.get_target_profiles(body=body))
                 return
 
-            elif subpath.startswith("/targets/"):
-                tgt_id = subpath.split("/")[2]
+            elif len(parts) == 2 and parts[0] == "targets":
+                tgt_id = parts[1]
                 tgt = api_controller.get_target_profile_by_id(tgt_id)
                 if tgt:
                     self._send_json_response(200, tgt)
@@ -101,18 +113,18 @@ class TerraAnalogHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     self._send_json_response(404, {"error": "Target profile not found"})
                 return
 
-            elif subpath == "/environment/events":
+            elif parts == ["environment", "events"]:
                 region_id = query_params.get("region_id", [None])[0]
                 self._send_json_response(200, api_controller.get_environment_events(region_id=region_id))
                 return
 
-            elif subpath.startswith("/ar/regions/") and subpath.endswith("/scene"):
-                reg_id = subpath.split("/")[3]
+            elif len(parts) == 4 and parts[0] == "ar" and parts[1] == "regions" and parts[3] == "scene":
+                reg_id = parts[2]
                 self._send_json_response(200, api_controller.get_ar_scene(reg_id))
                 return
 
-            elif subpath.startswith("/exports/regions/"):
-                reg_id = subpath.split("/")[3]
+            elif len(parts) == 3 and parts[0] == "exports" and parts[1] == "regions":
+                reg_id = parts[2]
                 self._send_json_response(200, api_controller.export_region_summary(reg_id))
                 return
 
@@ -139,26 +151,28 @@ class TerraAnalogHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception:
             body_json = {}
 
-        if path == "/api/v1/similarity/runs":
+        clean_path = path.rstrip("/")
+
+        if clean_path == "/api/v1/similarity/runs":
             target_id = body_json.get("target_id", "tgt_mars_jezero")
             params = body_json.get("parameters", {})
             res = api_controller.run_similarity(target_id, params)
             self._send_json_response(200, res)
             return
 
-        elif path == "/api/v1/reverse-search":
+        elif clean_path == "/api/v1/reverse-search":
             query = body_json.get("query", "")
             filters = body_json.get("filters", {})
             res = api_controller.reverse_search(query, filters)
             self._send_json_response(200, res)
             return
 
-        elif path == "/api/v1/environment/events":
+        elif clean_path == "/api/v1/environment/events":
             res = api_controller.log_environment_event(body_json)
             self._send_json_response(201, res)
             return
 
-        elif path == "/api/v1/simulation/runs":
+        elif clean_path == "/api/v1/simulation/runs":
             reg_id = body_json.get("region_id", "reg_pinacate")
             scenario_type = body_json.get("scenario_type", "ROVER_MOBILITY")
             params = body_json.get("parameters", {})
@@ -175,6 +189,7 @@ def run_server(port: int = 8000):
     print(f"TerraAnalog Server running on http://127.0.0.1:{port}")
     print(f"Open http://127.0.0.1:{port}/ in your web browser")
     print(f"==================================================")
+    socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", port), TerraAnalogHTTPRequestHandler) as httpd:
         try:
             httpd.serve_forever()

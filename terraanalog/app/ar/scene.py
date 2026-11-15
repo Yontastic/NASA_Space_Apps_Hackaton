@@ -22,12 +22,24 @@ class ArSceneBuilder:
         """
         ref_lat = float(region["latitude"])
         ref_lon = float(region["longitude"])
-        ref_alt = float(region.get("elevation_m", 1500.0))
+        raw_alt = region.get("elevation_m")
+        ref_alt = float(raw_alt) if raw_alt is not None else 1500.0
         
         # 1. Generate local 10x10 synthetic DEM terrain grid in ENU (East, North, Up) coordinates
         grid_points = []
-        base_slope = float(measurements.get("slope_mean", {}).get("value_numeric", 6.0))
-        roughness = float(measurements.get("roughness", {}).get("value_numeric", 0.25))
+        def _get_num_val(meas_dict: Dict[str, Any], key: str, default: float) -> float:
+            entry = meas_dict.get(key)
+            if isinstance(entry, dict):
+                v = entry.get("value_numeric")
+                if v is not None:
+                    try:
+                        return float(v)
+                    except (ValueError, TypeError):
+                        pass
+            return default
+
+        base_slope = _get_num_val(measurements, "slope_mean", 6.0)
+        roughness = _get_num_val(measurements, "roughness", 0.25)
         
         step_meters = 25.0 # 25m grid spacing
         for i in range(-5, 6):

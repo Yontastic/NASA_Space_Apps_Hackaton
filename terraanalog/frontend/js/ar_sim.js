@@ -128,7 +128,7 @@ class ArSimulator {
     window.addEventListener('keydown', (e) => {
       // Only process when simulator modal is open
       const modal = document.getElementById('modal-ar-sim');
-      if (!modal || modal.style.display !== 'flex') return;
+      if (!modal || (!modal.classList.contains('open') && modal.style.display !== 'flex')) return;
 
       switch (e.key) {
         case 'ArrowUp':
@@ -284,6 +284,10 @@ class ArSimulator {
 
     this.render();
     this.updateTelemetryHUD();
+  }
+
+  stepRover(dist = 0.4) {
+    this.moveRover(dist, 0);
   }
 
   project3D(x, y, z, width, height) {

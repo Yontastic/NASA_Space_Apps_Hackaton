@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TerraAnalog — Rediseño Apple Human Interface Guidelines (HIG)</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tipografía San Francisco / Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'Inter', 'sans-serif'],
+                        mono: ['SF Mono', 'ui-monospace', 'Menlo', 'monospace']
+                    },
+                    colors: {
+                        appleBlue: '#0A84FF',
+                        appleBlueHover: '#0071E3',
+                        appleGreen: '#30D158',
+                        appleAmber: '#FF9F0A',
+                        appleRed: '#FF453A',
+                        appleCyan: '#64D2FF',
+                        applePurple: '#BF5AF2',
+                        appleIndigo: '#5E5CE6',
+                        appleSystemBg: '#000000',
+                        appleSecondaryBg: '#1C1C1E',
+                        appleTertiaryBg: '#2C2C2E',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* =========================================================================
+           SISTEMA DE DISEÑO APPLE HIG (iOS 18 / macOS Sequoia Dark Mode)
+           ========================================================================= */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sar: env(safe-area-inset-right, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sal: env(safe-area-inset-left, 0px);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+            background-color: #000000; /* OLED Pure Black Apple HIG */
+            color: #FFFFFF;
+            overflow: hidden;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Materiales Traslúcidos de Vibrancia Nativa Apple (Frosted Glass) */
+        .apple-glass {
+            background: rgba(28, 28, 30, 0.76);
+            backdrop-filter: blur(34px) saturate(200%);
+            -webkit-backdrop-filter: blur(34px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .apple-glass-thin {
+            background: rgba(28, 28, 30, 0.62);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+        }
+
+        .apple-card {
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            transition: all 0.24s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .apple-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.16);
+            transform: translateY(-1px);
+        }
+
+        .apple-card-selected {
+            background: rgba(10, 132, 255, 0.14) !important;
+            border: 1.5px solid #0A84FF !important;
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.20), 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Objetivo táctil mínimo estricto Apple HIG: 44x44pt */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+        }
+
+        /* Grabber nativo para hojas modales (Apple Sheet Handle) */
+        .apple-sheet-grabber {
+            width: 36px;
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.25);
+            margin: 8px auto 14px auto;
+        }
+
+        /* Slider Nativo iOS con pista iluminada */
+        input[type="range"].apple-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.16);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"].apple-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        input[type="range"].apple-slider::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+        }
+
+        /* Switch Toggle Nativo iOS (51x31pt) */
+        .ios-switch {
+            position: relative;
+            display: inline-block;
+            width: 51px;
+            height: 31px;
+            flex-shrink: 0;
+        }
+
+        .ios-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .ios-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: rgba(120, 120, 128, 0.36);
+            transition: 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+            border-radius: 31px;
+        }
+
+        .ios-slider:before {
+            position: absolute;
+            content: "";
+            height: 27px;
+            width: 27px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: 0.28s cubic-bezier(0.25, 1, 0.5, 1);
+            border-radius: 50%;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+        }
+
+        input:checked + .ios-slider {
+            background-color: #30D158;
+        }
+
+        input:checked + .ios-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Checkbox circular interactivo estilo Apple Reminders */
+        .apple-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-radius: 50%;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            flex-shrink: 0;
+        }
+
+        .apple-checkbox:checked {
+            background-color: #30D158;
+            border-color: #30D158;
+        }
+
+        .apple-checkbox:checked::after {
+            content: "";
+            position: absolute;
+            left: 6px;
+            top: 2.5px;
+            width: 6px;
+            height: 11px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        /* Scrollbar discreto macOS / iOS */
+        .apple-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .apple-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .apple-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.20);
+            border-radius: 999px;
+        }
+        .apple-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        /* Transición de resortes Apple (Spring Physics) */
+        .spring-transition {
+            transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+        }
+
+        /* Radar Sonar Pulse Beacon en el Marcador Activo */
+        @keyframes appleRadarPing {
+            0% { transform: scale(1); opacity: 0.85; }
+            50% { transform: scale(2.4); opacity: 0.25; }
+            100% { transform: scale(3.2); opacity: 0; }
+        }
+        .radar-ping {
+            animation: appleRadarPing 2.2s infinite cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        /* Resplandor atmosférico para el Esferoide 3D */
+        .atmosphere-glow {
+            box-shadow: 0 0 80px rgba(10, 132, 255, 0.22), inset 0 0 50px rgba(100, 210, 255, 0.18);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen overflow-hidden relative bg-black text-[#F5F5F7]">
+
+    <!-- =====================================================================
+         1. LIENZO DEL MAPA / ESFEROIDE 3D (DEFERENCIA PURA AL CONTENIDO)
+         ===================================================================== -->
+    <div id="mapContainer" class="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden bg-black">
+        <!-- Canvas de Alta Definición con proyección 2D y Esferoide 3D -->
+        <canvas id="satelliteCanvas" class="w-full h-full block"></canvas>
+
+        <!-- Capa de Pines de Sitios Análogos con Posicionamiento Dinámico -->
+        <div id="pinsLayer" class="absolute inset-0 pointer-events-none"></div>
+
+        <!-- Tarjeta Flotante de Inspección Rápida sobre el Mapa (Popover iPadOS) -->
+        <div id="mapPopover" class="hidden absolute z-30 w-80 apple-glass rounded-[24px] p-4 pointer-events-auto spring-transition shadow-2xl">
+            <div class="flex items-start justify-between gap-2 mb-2">
+                <div>
+                    <span id="popoverRank" class="text-[10px] font-bold tracking-wider uppercase text-appleCyan">ANÁLOGO #1</span>
+                    <h4 id="popoverTitle" class="text-[16px] font-semibold text-white leading-tight mt-0.5">Desierto de Atacama</h4>
+                    <p id="popoverMeta" class="text-xs text-white/60 mt-0.5">Chile • Desierto • 1200 m</p>
+                </div>
+                <button onclick="closePopover()" aria-label="Cerrar detalle" class="touch-target w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Grilla de Parámetros Rápida -->
+            <div class="grid grid-cols-2 gap-2 my-3 text-xs">
+                <div class="bg-white/5 rounded-xl p-2.5 border border-white/10">
+                    <span class="text-white/50 block text-[10px]">Similitud Gaussiana</span>
+                    <span id="popoverSim" class="text-sm font-bold text-appleGreen mt-0.5 block">94%</span>
+                </div>
+                <div class="bg-white/5 rounded-xl p-2.5 border border-white/10">
+                    <span class="text-white/50 block text-[10px]">Pendiente Media</span>
+                    <span id="popoverSlope" class="text-sm font-bold text-white mt-0.5 block">4.2°</span>
+                </div>
+            </div>
+
+            <p id="popoverDesc" class="text-[11px] text-white/70 line-clamp-2 leading-relaxed mb-3">
+                Zona hiperárida análoga a los suelos oxidados marcianos con percloratos.
+            </p>
+
+            <div class="flex items-center gap-2">
+                <button onclick="openSimulationModal()" class="flex-1 touch-target rounded-xl bg-appleBlue hover:bg-appleBlueHover active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-appleBlue/20 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+                    <span>Ficha Técnica 3D</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         2. BARRA DE NAVEGACIÓN SUPERIOR (CLARIDAD, DEFERENCIA Y PROFUNDIDAD)
+         ===================================================================== -->
+    <header class="fixed top-3 left-3 right-3 z-40 apple-glass rounded-[22px] px-3.5 py-2 flex items-center justify-between gap-3 shadow-lg">
+        
+        <!-- Identidad de Marca sobria estilo Apple + Selector de Cuerpo -->
+        <div class="flex items-center gap-3 min-w-0">
+            <!-- App Icon Squircle iOS -->
+            <div class="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#0A84FF] via-[#0055D4] to-[#011430] p-0.5 shadow-md flex-shrink-0 border border-white/20">
+                <div class="w-full h-full rounded-[10px] flex items-center justify-center relative overflow-hidden">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/>
+                        <ellipse cx="12" cy="12" rx="8" ry="3.2" transform="rotate(-24 12 12)" stroke="#64D2FF" stroke-width="1.5"/>
+                        <circle cx="16" cy="8" r="1.5" fill="#30D158"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="hidden sm:block leading-tight">
+                <div class="flex items-center gap-1.5">
+                    <h1 class="text-[15px] font-semibold tracking-tight text-white">TerraAnalog</h1>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/15">HIG v2.5</span>
+                </div>
+                <p class="text-[11px] text-white/50 truncate">Motor Geofísico de Análogos Planetarios</p>
+            </div>
+
+            <!-- Divisor sutil -->
+            <div class="hidden md:block h-6 w-px bg-white/10 mx-1"></div>
+
+            <!-- Segmented Control Nativo: Cuerpo Celeste (Luna / Marte) -->
+            <div class="bg-black/40 p-1 rounded-xl border border-white/10 flex items-center" role="tablist" aria-label="Cuerpo celeste">
+                <button id="btnBodyMoon" onclick="setCelestialBody('moon')" class="touch-target min-h-[34px] px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-white/15 text-white shadow-sm transition">
+                    <svg class="w-3.5 h-3.5 text-amber-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+                    <span>Luna</span>
+                </button>
+                <button id="btnBodyMars" onclick="setCelestialBody('mars')" class="touch-target min-h-[34px] px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 text-white/60 hover:text-white transition">
+                    <svg class="w-3.5 h-3.5 text-appleRed" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                    <span>Marte</span>
+                </button>
+            </div>
+
+            <!-- Selector de Región Objetivo (Sin Truncamiento) -->
+            <div class="hidden lg:flex items-center bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-xl px-3 min-h-[40px] transition">
+                <span class="text-[11px] font-medium text-white/50 mr-2">Objetivo:</span>
+                <select id="targetSelect" onchange="handleTargetChange()" aria-label="Seleccionar sitio objetivo" class="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-2">
+                    <option value="shackleton" class="bg-[#1C1C1E] text-white">Cráter Shackleton • Trampa Polar (Artemis III)</option>
+                    <option value="tranquillitatis" class="bg-[#1C1C1E] text-white">Mare Tranquillitatis • Basalto de Ilmenita</option>
+                    <option value="procellarum" class="bg-[#1C1C1E] text-white">Oceanus Procellarum • Tubos de Lava</option>
+                    <option value="jezero" class="bg-[#1C1C1E] text-white">Cráter Jezero • Delta Lacustre (Perseverance)</option>
+                    <option value="gale" class="bg-[#1C1C1E] text-white">Cráter Gale & Monte Sharp (Curiosity)</option>
+                    <option value="meridiani" class="bg-[#1C1C1E] text-white">Meridiani Planum • Sulfatos y Hematita</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Acciones Globales e Indicadores de Estado -->
+        <div class="flex items-center gap-2">
+            <!-- Píldora de fuentes científicas en tiempo real -->
+            <div class="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-appleGreen/10 border border-appleGreen/25 text-appleGreen text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-appleGreen animate-pulse"></span>
+                <span>10 Fuentes Científicas Activas</span>
+            </div>
+
+            <!-- Botón Lista de Verificación (Modal HIG) -->
+            <button onclick="openChecklistModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white flex items-center gap-1.5 text-xs font-medium transition" title="Lista de verificación">
+                <svg class="w-4 h-4 text-appleGreen" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="hidden md:inline">Misión</span>
+            </button>
+
+            <!-- Botón Guía Técnica -->
+            <a href="index.html" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white flex items-center gap-1.5 text-xs font-medium transition" title="Volver a la vista clásica completa"><svg class="w-4 h-4 text-white/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg><span class="hidden md:inline">Clásica</span></a>
+            <button onclick="openGuideModal()" class="touch-target px-3 rounded-xl hover:bg-white/10 text-white/85 hover:text-white flex items-center gap-1.5 text-xs font-medium transition" title="Guía y Documentación">
+                <svg class="w-4 h-4 text-white/70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                <span class="hidden md:inline">Guía</span>
+            </button>
+
+            <!-- CTA Primario: Simulación Geofísica -->
+            <button onclick="openSimulationModal()" class="touch-target px-3.5 rounded-xl bg-appleBlue hover:bg-appleBlueHover active:scale-95 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-appleBlue/25 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25"/></svg>
+                <span class="hidden sm:inline">Simulación 3D</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- =====================================================================
+         3. PÍLDORA CENTRAL DE VISTA DEL MAPA (2D vs. ESFEROIDE 3D)
+         ===================================================================== -->
+    <div class="fixed top-[74px] left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-2 max-w-[95vw]">
+        <!-- Segmented Control de Proyección de Mapa -->
+        <div class="apple-glass-thin rounded-full p-1 flex items-center gap-1 shadow-md">
+            <button id="btnView3D" onclick="setMapProjection('3d')" class="touch-target min-h-[34px] px-3.5 rounded-full text-xs font-semibold bg-appleBlue text-white flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a14.5 14.5 0 010 18M12 3a14.5 14.5 0 000 18"/></svg>
+                <span>Esferoide 3D</span>
+            </button>
+            <button id="btnView2D" onclick="setMapProjection('2d')" class="touch-target min-h-[34px] px-3.5 rounded-full text-xs font-medium text-white/70 hover:text-white flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
+                <span>Mapa Plano 2D</span>
+            </button>
+        </div>
+
+        <!-- Botones de Acción de Cámara Rápida -->
+        <div class="hidden sm:flex apple-glass-thin rounded-full p-1 items-center gap-1 shadow-md">
+            <button onclick="resetCameraView()" class="touch-target min-h-[34px] px-3 rounded-full text-xs font-medium text-white/80 hover:bg-white/10 flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 text-appleCyan" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3"/></svg>
+                <span>Centrar</span>
+            </button>
+            <button onclick="fitAllPins()" class="touch-target min-h-[34px] px-3 rounded-full text-xs font-medium text-white/80 hover:bg-white/10 flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 text-appleAmber" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                <span>Ver los 20</span>
+            </button>
+            <button id="btnMapStyle" onclick="toggleTerrainMode()" class="touch-target min-h-[34px] px-3 rounded-full text-xs font-medium text-white/80 hover:bg-white/10 flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 text-applePurple" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3"/></svg>
+                <span id="mapStyleLabel">Relieve Satelital</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         4. PANEL IZQUIERDO: EXPLORACIÓN Y FILTROS (INSPECTOR APPLE HIG)
+         ===================================================================== -->
+    <aside id="leftSidebar" class="spring-transition fixed top-[124px] bottom-20 left-3 z-30 w-[340px] max-w-[calc(100vw-24px)] apple-glass rounded-[26px] flex flex-col overflow-hidden shadow-2xl">
+        
+        <!-- Cabecera del Inspector con Handle de agarre sutil -->
+        <div class="px-4 pt-3 pb-2 flex items-center justify-between border-b border-white/10">
+            <div>
+                <h2 class="text-[15px] font-semibold tracking-tight text-white">Exploración y Filtros</h2>
+                <p class="text-[11px] text-white/50">Criterios geofísicos multicapa</p>
+            </div>
+            <button onclick="toggleLeftSidebar()" aria-label="Contraer panel" class="touch-target w-10 h-10 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+            </button>
+        </div>
+
+        <!-- Segmented Control Nativo de Pestañas: Filtros / IA Inversa / Capas -->
+        <div class="px-4 py-2.5">
+            <div class="bg-black/40 p-1 rounded-xl border border-white/10 grid grid-cols-3 gap-1">
+                <button onclick="setInspectorTab('filters')" id="tabFilters" class="touch-target min-h-[34px] rounded-lg text-xs font-semibold bg-white/15 text-white shadow-sm transition">Filtros</button>
+                <button onclick="setInspectorTab('ai')" id="tabAi" class="touch-target min-h-[34px] rounded-lg text-xs font-medium text-white/60 hover:text-white transition">IA Inversa</button>
+                <button onclick="setInspectorTab('layers')" id="tabLayers" class="touch-target min-h-[34px] rounded-lg text-xs font-medium text-white/60 hover:text-white transition">Capas</button>
+            </div>
+        </div>
+
+        <!-- Contenido Desplazable del Inspector -->
+        <div id="inspectorBody" class="flex-1 overflow-y-auto apple-scroll px-4 pb-4 space-y-4">
+            
+            <!-- Vista 1: Filtros de Parámetros Físicos -->
+            <div id="viewFilters" class="space-y-4">
+                
+                <!-- Buscador Nativo con Lupa de Localización y Limpiar -->
+                <div class="relative">
+                    <svg class="w-4 h-4 text-white/45 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                    <input id="searchInput" type="text" oninput="filterResults()" placeholder="Buscar por nombre, país o litología..." class="w-full min-h-[44px] pl-10 pr-9 rounded-xl bg-black/40 border border-white/10 focus:border-appleBlue focus:ring-2 focus:ring-appleBlue/20 text-xs text-white placeholder-white/40 outline-none transition">
+                    <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Slider 1: Pendiente Topográfica Máxima (Slope) -->
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label for="slopeSlider" class="text-xs font-medium text-white/90">Pendiente Máxima Admitida</label>
+                        <span id="slopeValue" class="text-xs font-bold text-appleCyan bg-appleCyan/15 px-2.5 py-0.5 rounded-full">25°</span>
+                    </div>
+                    <input id="slopeSlider" type="range" min="3" max="45" value="25" oninput="updateSliderUI('slopeSlider', 'slopeValue', '°')" class="apple-slider">
+                    <div class="flex justify-between text-[10px] text-white/40">
+                        <span>3° Terreno Llano</span>
+                        <span>25° Moderado</span>
+                        <span>45° Escarpado</span>
+                    </div>
+                </div>
+
+                <!-- Slider 2: Cobertura Mínima de Datos Satelitales -->
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label for="coverageSlider" class="text-xs font-medium text-white/90">Cobertura Mínima de Sensores</label>
+                        <span id="coverageValue" class="text-xs font-bold text-appleCyan bg-appleCyan/15 px-2.5 py-0.5 rounded-full">50%</span>
+                    </div>
+                    <input id="coverageSlider" type="range" min="10" max="100" value="50" oninput="updateSliderUI('coverageSlider', 'coverageValue', '%')" class="apple-slider">
+                    <div class="flex justify-between text-[10px] text-white/40">
+                        <span>10% Parcial</span>
+                        <span>50%</span>
+                        <span>100% Óptimo</span>
+                    </div>
+                </div>
+
+                <!-- Selector de Tipo de Entorno Geológico -->
+                <div class="space-y-1.5">
+                    <label for="envSelect" class="text-xs font-medium text-white/80 block">Entorno Geológico</label>
+                    <div class="relative">
+                        <select id="envSelect" onchange="filterResults()" class="w-full min-h-[44px] appearance-none rounded-xl bg-black/40 border border-white/10 hover:border-white/20 focus:border-appleBlue px-3.5 pr-9 text-xs font-medium text-white outline-none cursor-pointer transition">
+                            <option value="all" class="bg-[#1C1C1E]">Todos los Entornos (20 Regiones)</option>
+                            <option value="Desert" class="bg-[#1C1C1E]">Desiertos Hiperáridos (Atacama, Qaidam, etc.)</option>
+                            <option value="Volcanic" class="bg-[#1C1C1E]">Campos Volcánicos y Lava (Kīlauea, Timanfaya)</option>
+                            <option value="Polar" class="bg-[#1C1C1E]">Regiones Polares y Permafrost (Vostok, McMurdo)</option>
+                            <option value="Salar" class="bg-[#1C1C1E]">Salares y Evaporitas (Uyuni, Cuatro Ciénegas)</option>
+                            <option value="Crater" class="bg-[#1C1C1E]">Cráteres de Impacto y Domos (Haughton, Richat)</option>
+                            <option value="Lava_Tube" class="bg-[#1C1C1E]">Tubos de Lava Subterráneos (Craters Moon)</option>
+                        </select>
+                        <svg class="w-4 h-4 text-white/60 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"/></svg>
+                    </div>
+                </div>
+
+                <!-- Switch iOS: Anomalías Geofísicas -->
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <span class="text-xs font-semibold text-white block">Ponderar Geofísica</span>
+                            <span class="text-[11px] text-white/50 leading-tight block mt-0.5">Incluir anomalía Bouguer, magnetometría y radiación cósmica.</span>
+                        </div>
+                        <label class="ios-switch" aria-label="Ponderar anomalías geofísicas">
+                            <input id="gravityToggle" type="checkbox" checked onchange="recalculateSimulation(false)">
+                            <span class="ios-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Switch iOS: Filtrar por Zonas Protegidas (ODS) -->
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <span class="text-xs font-semibold text-white block">Cumplimiento ODS (WDPA)</span>
+                            <span class="text-[11px] text-white/50 leading-tight block mt-0.5">Alertar conflictos con reservas biológicas (ODS 14/15).</span>
+                        </div>
+                        <label class="ios-switch" aria-label="Filtrar por cumplimiento ODS">
+                            <input id="odsToggle" type="checkbox" checked onchange="filterResults()">
+                            <span class="ios-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista 2: IA Inversa por Firmas Minerales -->
+            <div id="viewAi" class="hidden space-y-3">
+                <div class="bg-appleBlue/10 border border-appleBlue/25 rounded-2xl p-3.5">
+                    <h3 class="text-xs font-semibold text-appleCyan mb-1">Búsqueda Inversa por Firma Mineral</h3>
+                    <p class="text-[11px] text-white/70 leading-relaxed">Selecciona un compuesto detectado por espectrómetros orbitales (CRISM / M3) para mapear equivalentes terrestres.</p>
+                </div>
+                <div class="space-y-2">
+                    <button onclick="applySpectralFilter('Ilmenita (FeTiO₃)')" class="w-full touch-target px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between text-xs font-medium text-white transition">
+                        <span>Ilmenita y Basaltos de Titanio</span>
+                        <span class="text-appleGreen font-semibold">96% match</span>
+                    </button>
+                    <button onclick="applySpectralFilter('Hielo Volátil Subsuperficial')" class="w-full touch-target px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between text-xs font-medium text-white transition">
+                        <span>Trampas Frías y Permafrost</span>
+                        <span class="text-appleCyan font-semibold">92% match</span>
+                    </button>
+                    <button onclick="applySpectralFilter('Jarosita y Sulfatos Ácidos')" class="w-full touch-target px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between text-xs font-medium text-white transition">
+                        <span>Jarosita y Hematita Férrica</span>
+                        <span class="text-appleAmber font-semibold">89% match</span>
+                    </button>
+                    <button onclick="applySpectralFilter('Filosilicatos y Esmectita')" class="w-full touch-target px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between text-xs font-medium text-white transition">
+                        <span>Arcillas y Deltas Lacustres</span>
+                        <span class="text-applePurple font-semibold">87% match</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vista 3: Selector de Capas Cartográficas -->
+            <div id="viewLayers" class="hidden space-y-3">
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-medium text-white block">Modelo de Elevación (DEM)</span>
+                        <span class="text-[10px] text-white/45 block">Relieve hipsométrico Copernicus GLO-30</span>
+                    </div>
+                    <label class="ios-switch">
+                        <input id="demToggle" type="checkbox" checked onchange="toggleTerrainMode()">
+                        <span class="ios-slider"></span>
+                    </label>
+                </div>
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-medium text-white block">Retícula de Coordenadas</span>
+                        <span class="text-[10px] text-white/45 block">Líneas de latitud y longitud cada 30°</span>
+                    </div>
+                    <label class="ios-switch">
+                        <input id="gridToggle" type="checkbox" checked onchange="drawMap()">
+                        <span class="ios-slider"></span>
+                    </label>
+                </div>
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-medium text-white block">Terminador Solar (Día/Noche)</span>
+                        <span class="text-[10px] text-white/45 block">Sombra astronómica en tiempo real</span>
+                    </div>
+                    <label class="ios-switch">
+                        <input id="terminatorToggle" type="checkbox" checked onchange="drawMap()">
+                        <span class="ios-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pie Fijo del Inspector: Recalcular Similitud Gaussiana -->
+        <div class="p-3.5 border-t border-white/10 bg-black/30">
+            <button id="recalcBtn" onclick="recalculateSimulation(true)" class="w-full touch-target rounded-2xl bg-appleBlue hover:bg-appleBlueHover active:scale-98 text-white text-[13px] font-semibold flex items-center justify-center gap-2 shadow-lg shadow-appleBlue/25 transition">
+                <svg id="recalcIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <span id="recalcText">Recalcular Similitud Física</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Botón Flotante para Reabrir Panel Izquierdo -->
+    <button id="expandLeftBtn" onclick="toggleLeftSidebar()" aria-label="Mostrar panel de filtros" class="hidden fixed top-[124px] left-3 z-30 touch-target px-3.5 apple-glass rounded-2xl flex items-center gap-2 text-xs font-semibold text-white hover:bg-white/15 transition shadow-lg">
+        <svg class="w-4 h-4 text-appleCyan" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg>
+        <span>Filtros</span>
+    </button>
+
+    <!-- =====================================================================
+         5. PANEL DERECHO: RESULTADOS Y CLASIFICACIÓN (SHEET NATIVO HIG)
+         ===================================================================== -->
+    <aside id="rightSidebar" class="spring-transition fixed top-[124px] bottom-20 right-3 z-30 w-[365px] max-w-[calc(100vw-24px)] apple-glass rounded-[26px] flex flex-col overflow-hidden shadow-2xl">
+        
+        <!-- Cabecera de Resultados -->
+        <div class="px-4 pt-3 pb-2 border-b border-white/10 flex items-center justify-between gap-2">
+            <div>
+                <h2 class="text-[15px] font-semibold tracking-tight text-white">Análogos Clasificados</h2>
+                <p id="resultsSubtitle" class="text-[11px] text-white/50">20 regiones globales ordenadas</p>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                <!-- Botón Exportar GeoJSON -->
+                <button onclick="exportGeoJSON()" class="touch-target px-3 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-xs font-semibold text-white flex items-center gap-1.5 transition" title="Exportar en formato GeoJSON">
+                    <svg class="w-3.5 h-3.5 text-appleCyan" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    <span>GeoJSON</span>
+                </button>
+                <button onclick="toggleRightSidebar()" aria-label="Contraer panel" class="touch-target w-10 h-10 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Lista Desplazable de Tarjetas de Sitios Análogos -->
+        <div id="resultsList" class="flex-1 overflow-y-auto apple-scroll p-3 space-y-2.5">
+            <!-- Renderizado dinámico de los 20 análogos -->
+        </div>
+
+        <!-- Estado Vacío HIG (Empty State) -->
+        <div id="emptyState" class="hidden flex-1 flex flex-col items-center justify-center text-center p-6">
+            <div class="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 mb-3">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+            </div>
+            <h3 class="text-sm font-semibold text-white">Ningún análogo coincide</h3>
+            <p class="text-xs text-white/50 mt-1 max-w-[220px]">Relaja el umbral de pendiente máxima o selecciona 'Todos los Entornos'.</p>
+            <button onclick="resetAllFilters()" class="mt-4 touch-target px-4 rounded-xl bg-appleBlue hover:bg-appleBlueHover text-white text-xs font-semibold transition">
+                Restablecer Filtros
+            </button>
+        </div>
+    </aside>
+
+    <!-- Botón Flotante para Reabrir Panel Derecho -->
+    <button id="expandRightBtn" onclick="toggleRightSidebar()" aria-label="Mostrar resultados" class="hidden fixed top-[124px] right-3 z-30 touch-target px-3.5 apple-glass rounded-2xl flex items-center gap-2 text-xs font-semibold text-white hover:bg-white/15 transition shadow-lg">
+        <svg class="w-4 h-4 text-appleCyan" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+        <span>Resultados (<span id="resultsCountBadge">20</span>)</span>
+    </button>
+
+    <!-- =====================================================================
+         6. TAB BAR FLOTANTE INFERIOR (ERGONOMÍA HIG PARA USO CON UNA MANO)
+         ===================================================================== -->
+    <nav class="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 apple-glass rounded-[28px] p-1.5 flex items-center gap-1.5 shadow-2xl">
+        <!-- Pestaña 1: Explorar / Mapa Full Bleed -->
+        <button onclick="toggleMapFullscreen()" id="tabBarMap" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-2 text-white/80 hover:bg-white/10 transition">
+            <svg class="w-4 h-4 text-appleBlue" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+            <span class="hidden sm:inline">Mapa</span>
+        </button>
+
+        <div class="w-px h-5 bg-white/10"></div>
+
+        <!-- Pestaña 2: Filtros -->
+        <button onclick="toggleLeftSidebar()" id="tabBarFilters" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-2 text-white/80 hover:bg-white/10 transition">
+            <svg class="w-4 h-4 text-appleCyan" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg>
+            <span class="hidden sm:inline">Filtros</span>
+        </button>
+
+        <!-- Pestaña 3: Resultados -->
+        <button onclick="toggleRightSidebar()" id="tabBarResults" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-2 text-white/80 hover:bg-white/10 transition">
+            <svg class="w-4 h-4 text-appleGreen" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+            <span class="hidden sm:inline">Resultados</span>
+        </button>
+
+        <!-- Pestaña 4: Misión Checklist -->
+        <button onclick="openChecklistModal()" id="tabBarChecklist" class="touch-target px-3.5 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-2 text-white/80 hover:bg-white/10 transition">
+            <svg class="w-4 h-4 text-appleAmber" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="hidden sm:inline">Misión</span>
+        </button>
+
+        <div class="w-px h-5 bg-white/10"></div>
+
+        <!-- Controles de Zoom del Mapa -->
+        <div class="flex items-center">
+            <button onclick="zoomMap(-0.2)" aria-label="Alejar mapa" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white flex items-center justify-center transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15"/></svg>
+            </button>
+            <span id="zoomBadge" class="px-2 text-[11px] font-semibold text-white/70 tabular-nums">100%</span>
+            <button onclick="zoomMap(0.2)" aria-label="Acercar mapa" class="touch-target w-9 h-9 rounded-xl hover:bg-white/10 text-white flex items-center justify-center transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- =====================================================================
+         7. HOJA MODAL: SIMULACIÓN GEOFÍSICA 3D (APPLE SHEET MODAL)
+         ===================================================================== -->
+    <div id="simulationModal" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="apple-glass rounded-[32px] w-full max-w-xl overflow-hidden shadow-2xl border border-white/15 spring-transition">
+            
+            <!-- Grabber superior iOS -->
+            <div class="apple-sheet-grabber"></div>
+
+            <div class="px-6 pb-3 flex items-center justify-between border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <span class="w-3 h-3 rounded-full bg-appleBlue"></span>
+                    <div>
+                        <h3 id="simModalTitle" class="text-base font-semibold text-white">Simulación Geofísica • Desierto de Atacama</h3>
+                        <p id="simModalSubtitle" class="text-xs text-white/50">Cotejo Multivariado con Cráter Shackleton</p>
+                    </div>
+                </div>
+                <button onclick="closeSimulationModal()" aria-label="Cerrar modal" class="touch-target w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <!-- Perfil Topográfico SVG Comparado (LOLA vs. LiDAR Terrestre) -->
+                <div class="rounded-2xl bg-black/50 border border-white/10 p-4 relative overflow-hidden">
+                    <div class="flex justify-between items-center text-[11px] text-white/60 mb-2">
+                        <span>Perfil Topográfico Relativo (LOLA vs. LiDAR)</span>
+                        <span class="text-appleGreen font-semibold">Correlación R² = 0.94</span>
+                    </div>
+                    <svg class="w-full h-36" viewBox="0 0 400 120" fill="none">
+                        <defs>
+                            <linearGradient id="terrainGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#0A84FF" stop-opacity="0.45"/>
+                                <stop offset="100%" stop-color="#0A84FF" stop-opacity="0.0"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M0 95 Q 50 40, 110 70 T 210 30 T 310 65 T 400 40 L 400 120 L 0 120 Z" fill="url(#terrainGrad)"/>
+                        <path d="M0 95 Q 50 40, 110 70 T 210 30 T 310 65 T 400 40" stroke="#0A84FF" stroke-width="2.5" fill="none"/>
+                        <path d="M0 98 Q 55 48, 115 75 T 215 38 T 315 69 T 400 48" stroke="#64D2FF" stroke-width="1.6" stroke-dasharray="4 4" fill="none"/>
+                    </svg>
+                    <div class="flex items-center gap-4 text-[11px] text-white/70 mt-2">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-appleBlue"></span> Análogo Terrestre (LiDAR)</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-appleCyan"></span> Objetivo Planetario (LOLA / MOLA)</span>
+                    </div>
+                </div>
+
+                <!-- Métricas Físicas Clave en Tarjetas Estilo Apple Stat Cards -->
+                <div class="grid grid-cols-3 gap-2.5 text-center">
+                    <div class="bg-white/5 rounded-2xl p-3 border border-white/10">
+                        <span class="text-[11px] text-white/50 block">Rugosidad Superficial</span>
+                        <span id="simStatRoughness" class="text-sm font-bold text-white mt-0.5 block">0.22 m</span>
+                    </div>
+                    <div class="bg-white/5 rounded-2xl p-3 border border-white/10">
+                        <span class="text-[11px] text-white/50 block">Albedo Óptico</span>
+                        <span id="simStatAlbedo" class="text-sm font-bold text-appleGreen mt-0.5 block">0.24</span>
+                    </div>
+                    <div class="bg-white/5 rounded-2xl p-3 border border-white/10">
+                        <span class="text-[11px] text-white/50 block">Inercia Térmica</span>
+                        <span id="simStatInertia" class="text-sm font-bold text-appleCyan mt-0.5 block">390 J/m²Ks½</span>
+                    </div>
+                </div>
+
+                <!-- Evaluación de Riesgo de Misión y ODS -->
+                <div class="bg-white/[0.04] rounded-2xl p-3.5 border border-white/10 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-appleAmber/15 text-appleAmber flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                    </div>
+                    <div class="text-xs">
+                        <span class="font-semibold text-white block">Revisión Restringida (ODS 15: Vida de Ecosistemas Terrestres)</span>
+                        <p class="text-white/60 leading-relaxed mt-0.5">
+                            Se requiere salvaguardar las costras biológicas de yeso contra la trituración por bandas de rodadura mecánicas de rovers pesados.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-black/40 border-t border-white/10 flex justify-end gap-2.5">
+                <button onclick="closeSimulationModal()" class="touch-target px-4 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition">Cerrar</button>
+                <button onclick="exportGeoJSON(); closeSimulationModal();" class="touch-target px-4 rounded-xl bg-appleBlue hover:bg-appleBlueHover text-xs font-semibold text-white transition shadow-md shadow-appleBlue/20">Descargar Paquete GeoJSON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         8. HOJA MODAL: LISTA DE VERIFICACIÓN DE MISIÓN (APPLE REMINDERS HIG)
+         ===================================================================== -->
+    <div id="checklistModal" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="apple-glass rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl border border-white/15 spring-transition">
+            
+            <div class="apple-sheet-grabber"></div>
+
+            <div class="px-6 pb-3 flex items-center justify-between border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3 h-3 rounded-full bg-appleGreen"></span>
+                    <div>
+                        <h3 class="text-base font-semibold text-white">Lista de Verificación de Campaña</h3>
+                        <p class="text-xs text-white/50">Protocolo Artemis III & Perseverance Rover</p>
+                    </div>
+                </div>
+                <button onclick="closeChecklistModal()" aria-label="Cerrar lista" class="touch-target w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Barra de Progreso de la Misión -->
+            <div class="px-6 pt-4">
+                <div class="flex items-center justify-between text-xs text-white/70 mb-1.5">
+                    <span>Progreso de Validación</span>
+                    <span id="checklistProgressText" class="font-bold text-appleGreen">3 de 6 completadas (50%)</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div id="checklistProgressBar" class="h-full bg-appleGreen rounded-full transition-all duration-300" style="width: 50%;"></div>
+                </div>
+            </div>
+
+            <!-- Ítems Interactivos con Checkboxes Circulares Apple Reminders -->
+            <div class="p-6 space-y-3 max-h-[50vh] overflow-y-auto apple-scroll" id="checklistItemsContainer">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <div class="px-6 py-4 bg-black/40 border-t border-white/10 flex justify-between items-center">
+                <button onclick="resetChecklist()" class="text-xs text-white/50 hover:text-white transition">Restablecer Lista</button>
+                <button onclick="closeChecklistModal()" class="touch-target px-4 rounded-xl bg-appleBlue hover:bg-appleBlueHover text-xs font-semibold text-white transition">Guardar y Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         9. HOJA MODAL: GUÍA TÉCNICA DE PARÁMETROS GEOFÍSICOS
+         ===================================================================== -->
+    <div id="guideModal" class="hidden fixed inset-0 z-50 bg-black/65 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="apple-glass rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl border border-white/15 spring-transition">
+            
+            <div class="apple-sheet-grabber"></div>
+
+            <div class="px-6 pb-3 flex items-center justify-between border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-3 h-3 rounded-full bg-appleCyan"></span>
+                    <h3 class="text-base font-semibold text-white">Guía de Parámetros Geofísicos</h3>
+                </div>
+                <button onclick="closeGuideModal()" aria-label="Cerrar guía" class="touch-target w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto apple-scroll text-xs text-white/80 leading-relaxed">
+                <div class="bg-white/5 rounded-2xl p-4 border border-white/10">
+                    <h4 class="font-semibold text-white text-[13px] mb-1">Fórmula de Similitud Gaussiana Multivariada</h4>
+                    <p class="text-white/60 mb-2">Cada candidato se evalúa contra las variables del objetivo planetario mediante una función de decaimiento cuadrático normalizado:</p>
+                    <code class="block bg-black/60 p-2.5 rounded-xl font-mono text-[11px] text-appleCyan">
+                        s_i = exp(-0.5 * sum(w_k * (Δx_k / τ_k)²))
+                    </code>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-appleBlue mt-1.5 flex-shrink-0"></span>
+                        <p><strong class="text-white">Δx_k (Diferencia Absoluta):</strong> Desviación entre la medición del terreno terrestre y la media del objetivo planetario.</p>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-appleGreen mt-1.5 flex-shrink-0"></span>
+                        <p><strong class="text-white">τ_k (Vector de Tolerancia):</strong> Rango admisible específico por variable (p. ej. 5.0° para pendiente, 0.15 para albedo).</p>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-appleAmber mt-1.5 flex-shrink-0"></span>
+                        <p><strong class="text-white">Cumplimiento ODS 14 y 15:</strong> Clasificación de impacto ético y ambiental de acuerdo con la base de datos mundial de áreas protegidas (WDPA).</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-black/40 border-t border-white/10 flex justify-end">
+                <button onclick="closeGuideModal()" class="touch-target px-4 rounded-xl bg-appleBlue hover:bg-appleBlueHover text-xs font-semibold text-white transition">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         10. NOTIFICACIÓN FLOTANTE ESTILO DYNAMIC ISLAND (FEEDBACK INSTANTÁNEO)
+         ===================================================================== -->
+    <div id="appleToast" class="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 opacity-0 -translate-y-4 spring-transition">
+        <div class="apple-glass rounded-full px-4 py-2.5 flex items-center gap-2.5 shadow-2xl border border-white/15">
+            <span class="w-2 h-2 rounded-full bg-appleCyan animate-pulse"></span>
+            <span id="appleToastMsg" class="text-xs font-semibold text-white whitespace-nowrap">Acción completada</span>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         11. SCRIPT DEL MOTOR: DATOS DE 20 ANÁLOGOS, MAPA 3D Y LÓGICA HIG
+         ===================================================================== -->
+    <script>
+        // =========================================================================
+        // CATÁLOGO COMPLETO DE LOS 20 ANÁLOGOS PLANETARIOS GLOBALES (TERRA_DATA)
+        // =========================================================================
+        const globalAnalogs = [
+            {
+                id: 1,
+                name: "Desierto de Atacama (Yungay Core)",
+                country: "Chile",
+                env: "Desert",
+                envLabel: "Desierto Hiperárido",
+                lat: -24.08,
+                lon: -69.95,
+                elevation: 1200,
+                slope: 4.2,
+                coverage: 100,
+                baseSimilarity: 94,
+                similarity: 94,
+                alertType: "high",
+                alertLabel: "Revisión ODS 15",
+                desc: "El desierto más árido de la Tierra; análogo principal para misiones Viking, Phoenix y Curiosity con percloratos y nula materia orgánica."
+            },
+            {
+                id: 2,
+                name: "Malpaís de Timanfaya (Lanzarote)",
+                country: "España",
+                env: "Volcanic",
+                envLabel: "Volcánico",
+                lat: 29.02,
+                lon: -13.73,
+                elevation: 320,
+                slope: 6.2,
+                coverage: 100,
+                baseSimilarity: 93,
+                similarity: 93,
+                alertType: "high",
+                alertLabel: "Parque Nacional",
+                desc: "Coladas basálticas de malpaís y tubos de lava intactos. Sitio de entrenamiento de astronautas de la ESA (programa PANGAEA)."
+            },
+            {
+                id: 3,
+                name: "Cráter Haughton (Isla Devon)",
+                country: "Canadá",
+                env: "Crater",
+                envLabel: "Cráter de Impacto",
+                lat: 75.38,
+                lon: -89.68,
+                elevation: 220,
+                slope: 12.1,
+                coverage: 95,
+                baseSimilarity: 91,
+                similarity: 91,
+                alertType: "low",
+                alertLabel: "Alerta Baja",
+                desc: "Cráter de impacto de 23 km en desierto polar ártico. Banco de pruebas NASA HMP para perforación de permafrost y conos de impacto."
+            },
+            {
+                id: 4,
+                name: "Caldera de Askja & Holuhraun",
+                country: "Islandia",
+                env: "Volcanic",
+                envLabel: "Volcánico",
+                lat: 65.03,
+                lon: -16.75,
+                elevation: 1100,
+                slope: 7.2,
+                coverage: 95,
+                baseSimilarity: 91,
+                similarity: 91,
+                alertType: "high",
+                alertLabel: "Parque Nacional",
+                desc: "Sitio histórico de entrenamiento lunar de las misiones Apollo (1965 y 1967). Llanuras basálticas y campos de tefra prístinos."
+            },
+            {
+                id: 5,
+                name: "Valles Secos de McMurdo",
+                country: "Antártida",
+                env: "Polar",
+                envLabel: "Polar",
+                lat: -77.50,
+                lon: 162.50,
+                elevation: 950,
+                slope: 8.5,
+                coverage: 100,
+                baseSimilarity: 90,
+                similarity: 90,
+                alertType: "high",
+                alertLabel: "Tratado Antártico",
+                desc: "Desierto polar frío con permafrost continuo y pavimento desértico; análogo de los casquetes polares y sublimación marciana."
+            },
+            {
+                id: 6,
+                name: "Campo Volcánico El Pinacate",
+                country: "México",
+                env: "Volcanic",
+                envLabel: "Volcánico",
+                lat: 31.77,
+                lon: -113.50,
+                elevation: 850,
+                slope: 5.5,
+                coverage: 100,
+                baseSimilarity: 89,
+                similarity: 89,
+                alertType: "high",
+                alertLabel: "Reserva UNESCO",
+                desc: "Sitio de entrenamiento lunar de los astronautas Apollo con más de 400 conos de ceniza y 10 cráteres de explosión gigante Maar."
+            },
+            {
+                id: 7,
+                name: "Craters of the Moon (Great Rift)",
+                country: "Estados Unidos",
+                env: "Lava_Tube",
+                envLabel: "Tubos de Lava",
+                lat: 43.46,
+                lon: -113.56,
+                elevation: 1800,
+                slope: 4.8,
+                coverage: 100,
+                baseSimilarity: 88,
+                similarity: 88,
+                alertType: "low",
+                alertLabel: "Alerta Baja",
+                desc: "Vasta llanura basáltica a lo largo de la Gran Falla de Idaho con lavas pahoehoe y tubos subterráneos de entrenamiento Apollo."
+            },
+            {
+                id: 8,
+                name: "Valle de Wadi Rum",
+                country: "Jordania",
+                env: "Desert",
+                envLabel: "Desierto",
+                lat: 29.57,
+                lon: 35.42,
+                elevation: 970,
+                slope: 8.5,
+                coverage: 100,
+                baseSimilarity: 87,
+                similarity: 87,
+                alertType: "medium",
+                alertLabel: "Reserva UNESCO",
+                desc: "Valle de arenisca e inselbergs de granito con dunas rojas teñidas de óxido de hierro similares al terreno de Gale Crater."
+            },
+            {
+                id: 9,
+                name: "Cratón de Pilbara (Dresser)",
+                country: "Australia",
+                env: "Crater",
+                envLabel: "Basamento Arcaico",
+                lat: -21.15,
+                lon: 119.38,
+                elevation: 380,
+                slope: 6.5,
+                coverage: 100,
+                baseSimilarity: 86,
+                similarity: 86,
+                alertType: "high",
+                alertLabel: "Patrimonio Fósil",
+                desc: "Corteza continental arcaica de 3.5 Ga con los estromatolitos fosilizados más antiguos. Análogo de lecho rocoso noachiano."
+            },
+            {
+                id: 10,
+                name: "Campos de Lava Kīlauea",
+                country: "Estados Unidos",
+                env: "Volcanic",
+                envLabel: "Volcánico",
+                lat: 19.41,
+                lon: -155.28,
+                elevation: 1050,
+                slope: 4.5,
+                coverage: 100,
+                baseSimilarity: 86,
+                similarity: 86,
+                alertType: "high",
+                alertLabel: "Parque Nacional",
+                desc: "Volcán en escudo activo con lavas basálticas pāhoehoe y ʻaʻā, tubos y fumarolas análogas a reapariciones volcánicas lunares."
+            },
+            {
+                id: 11,
+                name: "Permafrost de Svalbard",
+                country: "Noruega",
+                env: "Polar",
+                envLabel: "Polar",
+                lat: 78.23,
+                lon: 15.63,
+                elevation: 450,
+                slope: 9.2,
+                coverage: 90,
+                baseSimilarity: 85,
+                similarity: 85,
+                alertType: "high",
+                alertLabel: "Reserva Ártica",
+                desc: "Terreno de permafrost del alto Ártico con morrenas de núcleo de hielo y suelos poligonales análogos a la criosfera marciana."
+            },
+            {
+                id: 12,
+                name: "Cuenca Qaidam (Campos Yardang)",
+                country: "China",
+                env: "Desert",
+                envLabel: "Desierto",
+                lat: 37.85,
+                lon: 93.65,
+                elevation: 2800,
+                slope: 5.8,
+                coverage: 100,
+                baseSimilarity: 84,
+                similarity: 84,
+                alertType: "medium",
+                alertLabel: "Alerta Media",
+                desc: "Meseta hiperárida de gran altitud con el mayor campo de yardangs terrestres, sales de perclorato y evaporitas de sulfato de epsomita."
+            },
+            {
+                id: 13,
+                name: "Depresión de Danakil / Dallol",
+                country: "Etiopía",
+                env: "Volcanic",
+                envLabel: "Hidrotermal",
+                lat: 14.24,
+                lon: 40.30,
+                elevation: -125,
+                slope: 3.8,
+                coverage: 85,
+                baseSimilarity: 84,
+                similarity: 84,
+                alertType: "high",
+                alertLabel: "Revisión Estricta",
+                desc: "Punto a -125 m con pozas hiperácidas (pH < 0) e hipersalinas con chimeneas de azufre y óxidos de hierro análogas a fuentes termales."
+            },
+            {
+                id: 14,
+                name: "Valle de la Muerte (Badwater)",
+                country: "Estados Unidos",
+                env: "Desert",
+                envLabel: "Desierto",
+                lat: 36.24,
+                lon: -116.82,
+                elevation: -60,
+                slope: 5.0,
+                coverage: 100,
+                baseSimilarity: 82,
+                similarity: 82,
+                alertType: "medium",
+                alertLabel: "Alerta Media",
+                desc: "Cuenca de graben hiperárida con abanicos aluviales, cráter volcánico maar de Ubehebe y costras salinas poligonales."
+            },
+            {
+                id: 15,
+                name: "Costa de los Esqueletos (Namib)",
+                country: "Namibia",
+                env: "Desert",
+                envLabel: "Desierto Costero",
+                lat: -20.45,
+                lon: 13.85,
+                elevation: 320,
+                slope: 6.0,
+                coverage: 95,
+                baseSimilarity: 81,
+                similarity: 81,
+                alertType: "high",
+                alertLabel: "Reserva UNESCO",
+                desc: "Antiguo desierto costero hiperárido con dunas lineales colosales y campos de líquenes dependientes de niebla."
+            },
+            {
+                id: 16,
+                name: "Salar de Uyuni",
+                country: "Bolivia",
+                env: "Salar",
+                envLabel: "Salar",
+                lat: -20.13,
+                lon: -67.49,
+                elevation: 3656,
+                slope: 0.8,
+                coverage: 100,
+                baseSimilarity: 79,
+                similarity: 79,
+                alertType: "medium",
+                alertLabel: "Alerta Media",
+                desc: "Mayor salar del planeta a 3656 m de altitud. Costra evaporítica hiperplana sobre salmuera de litio y alto índice de radiación UV."
+            },
+            {
+                id: 17,
+                name: "Estructura de Richat (Ojo del Sahara)",
+                country: "Mauritania",
+                env: "Crater",
+                envLabel: "Domo Circular",
+                lat: 21.13,
+                lon: -11.40,
+                elevation: 400,
+                slope: 5.4,
+                coverage: 100,
+                baseSimilarity: 78,
+                similarity: 78,
+                alertType: "low",
+                alertLabel: "Alerta Baja",
+                desc: "Domo anular circular de 40 km visible desde la órbita terrestre, análogo estructural de formaciones concéntricas en la Luna y Marte."
+            },
+            {
+                id: 18,
+                name: "Cuatro Ciénegas",
+                country: "México",
+                env: "Salar",
+                envLabel: "Paleolago / Yeso",
+                lat: 26.98,
+                lon: -102.05,
+                elevation: 740,
+                slope: 2.5,
+                coverage: 95,
+                baseSimilarity: 76,
+                similarity: 76,
+                alertType: "high",
+                alertLabel: "Humedal Ramsar",
+                desc: "Dunas de yeso y pozas con estromatolitos vivos únicos; análogo astrobiológico para paleolagos marcianos primitivos."
+            },
+            {
+                id: 19,
+                name: "Río Tinto",
+                country: "España",
+                env: "Desert",
+                envLabel: "Desierto / Ácido",
+                lat: 37.69,
+                lon: -6.56,
+                elevation: 430,
+                slope: 7.8,
+                coverage: 100,
+                baseSimilarity: 74,
+                similarity: 74,
+                alertType: "medium",
+                alertLabel: "Alerta Media",
+                desc: "Cuenca fluvial ácida rica en hierro (pH 2) con extremófilos; análogo para jarosita y hematita coincidente con Meridiani Planum."
+            },
+            {
+                id: 20,
+                name: "Meseta Subglacial Vostok",
+                country: "Antártida",
+                env: "Polar",
+                envLabel: "Hielo Polar Profundo",
+                lat: -78.46,
+                lon: 106.83,
+                elevation: 3488,
+                slope: 1.2,
+                coverage: 100,
+                baseSimilarity: 72,
+                similarity: 72,
+                alertType: "high",
+                alertLabel: "Protección Estricta",
+                desc: "Lago subglacial sellado bajo 4000 m de hielo polar durante 15 Ma; análogo terrestre de las capas de hielo de Europa y Encélado."
+            }
+        ];
+
+        // Estado Global de la Aplicación
+        let selectedAnalogId = 1; // Atacama seleccionado por defecto
+        let currentTarget = "shackleton";
+        let currentBody = "moon";
+        let mapZoom = 1.0;
+        let mapPanX = 0;
+        let mapPanY = 0;
+        let globeRotationX = 20; // Grados
+        let globeRotationY = 0;
+        let is3DMode = true;
+        let isHighContrast = false;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        // Lista de verificación de misión con persistencia local
+        const defaultChecklist = [
+            { id: 1, text: "Calibración del sensor espectral con estándar de regolito", done: true, category: "Instrumentación" },
+            { id: 2, text: "Verificación de exclusión de áreas protegidas (WDPA / ODS 15)", done: true, category: "Cumplimiento Ético" },
+            { id: 3, text: "Descarga de modelo digital de elevación Copernicus GLO-30", done: true, category: "Telemetría" },
+            { id: 4, text: "Prueba de tracción y deslizamiento en pendiente > 15°", done: false, category: "Movilidad Rover" },
+            { id: 5, text: "Simulación de comunicaciones con retraso orbital de 1.3 s", done: false, category: "Comunicaciones" },
+            { id: 6, text: "Protocolo de esterilización y protección planetaria COSPAR", done: false, category: "Protección Planetaria" }
+        ];
+
+        let missionChecklist = JSON.parse(localStorage.getItem('terraanalog_checklist')) || defaultChecklist;
+
+        const canvas = document.getElementById('satelliteCanvas');
+        const ctx = canvas.getContext('2d');
+        const pinsLayer = document.getElementById('pinsLayer');
+
+        // =========================================================================
+        // MOTOR DE RENDERIZADO DEL MAPA (2D PLANAR Y ESFEROIDE 3D HIG)
+        // =========================================================================
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawMap();
+            renderMapPins();
+        }
+
+        function drawMap() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.save();
+            ctx.clearRect(0, 0, w, h);
+
+            // Fondo espacial negro OLED puro con sutil gradiente estelar
+            const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 40, w * 0.5, h * 0.5, w * 0.9);
+            bgGrad.addColorStop(0, '#060B14');
+            bgGrad.addColorStop(1, '#000000');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            if (is3DMode) {
+                draw3DGlobe(w, h);
+            } else {
+                draw2DPlanarMap(w, h);
+            }
+
+            ctx.restore();
+        }
+
+        // Renderizado del Esferoide 3D con Matemática Ortográfica Real
+        function draw3DGlobe(w, h) {
+            const radius = Math.min(w, h) * 0.38 * mapZoom;
+            const cx = w * 0.5 + mapPanX;
+            const cy = h * 0.52 + mapPanY;
+
+            // Halo y resplandor atmosférico de dispersión Rayleigh estilo Apple
+            ctx.save();
+            const atmosphere = ctx.createRadialGradient(cx, cy, radius * 0.92, cx, cy, radius * 1.15);
+            atmosphere.addColorStop(0, 'rgba(10, 132, 255, 0.45)');
+            atmosphere.addColorStop(0.5, 'rgba(100, 210, 255, 0.15)');
+            atmosphere.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = atmosphere;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius * 1.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Cuerpo del Esferoide (Océano Azul Profundo / Tierra)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.clip(); // Restringir todo al disco del globo visible
+
+            const globeGrad = ctx.createRadialGradient(cx - radius * 0.35, cy - radius * 0.35, radius * 0.1, cx, cy, radius);
+            if (isHighContrast) {
+                globeGrad.addColorStop(0, '#122D42');
+                globeGrad.addColorStop(0.7, '#071624');
+                globeGrad.addColorStop(1, '#01050A');
+            } else {
+                globeGrad.addColorStop(0, '#10304D');
+                globeGrad.addColorStop(0.65, '#091E33');
+                globeGrad.addColorStop(1, '#020A12');
+            }
+            ctx.fillStyle = globeGrad;
+            ctx.fill();
+
+            // Dibujar meridianos y paralelos 3D si la cuadrícula está activada
+            const gridToggle = document.getElementById('gridToggle');
+            if (!gridToggle || gridToggle.checked) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 1;
+
+                // Paralelos
+                for (let lat = -60; lat <= 60; lat += 30) {
+                    ctx.beginPath();
+                    for (let lon = -180; lon <= 180; lon += 5) {
+                        const pt = project3D(lat, lon, cx, cy, radius);
+                        if (pt.visible) {
+                            if (lon === -180) ctx.moveTo(pt.x, pt.y);
+                            else ctx.lineTo(pt.x, pt.y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+
+                // Meridianos
+                for (let lon = -180; lon < 180; lon += 30) {
+                    ctx.beginPath();
+                    for (let lat = -80; lat <= 80; lat += 5) {
+                        const pt = project3D(lat, lon, cx, cy, radius);
+                        if (pt.visible) {
+                            if (lat === -80) ctx.moveTo(pt.x, pt.y);
+                            else ctx.lineTo(pt.x, pt.y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // Dibujar Masas Continentales Simplificadas Proyectadas en 3D
+            draw3DContinents(cx, cy, radius);
+
+            // Terminador Solar (Día / Noche) si está activo
+            const termToggle = document.getElementById('terminatorToggle');
+            if (!termToggle || termToggle.checked) {
+                const nightGrad = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius * 0.8, cy + radius * 0.8);
+                nightGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                nightGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.45)');
+                nightGrad.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
+                ctx.fillStyle = nightGrad;
+                ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+            }
+
+            // Borde y bisel de profundidad esferoide
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Proyección Ortográfica Esférica Real
+        function project3D(lat, lon, cx, cy, radius) {
+            const phi = (lat * Math.PI) / 180;
+            const lambda = ((lon - globeRotationY) * Math.PI) / 180;
+            const phi0 = (globeRotationX * Math.PI) / 180;
+
+            const cosC = Math.sin(phi0) * Math.sin(phi) + Math.cos(phi0) * Math.cos(phi) * Math.cos(lambda);
+
+            if (cosC < 0) {
+                return { x: 0, y: 0, visible: false };
+            }
+
+            const x = cx + radius * Math.cos(phi) * Math.sin(lambda);
+            const y = cy - radius * (Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * Math.cos(phi) * Math.cos(lambda));
+
+            return { x, y, visible: true, scale: Math.max(0.4, cosC) };
+        }
+
+        function draw3DContinents(cx, cy, radius) {
+            // Contornos continentales vectoriales sintéticos pero reconocibles
+            const continentPolygons = [
+                // África
+                [[-35, 18], [-25, 30], [0, 42], [15, 51], [30, 32], [37, 10], [15, -15], [5, -5], [-15, 12]],
+                // Europa
+                [[36, -9], [44, -1], [54, 8], [60, 28], [55, 38], [42, 28], [38, 22], [36, 15]],
+                // América del Norte
+                [[15, -95], [30, -82], [42, -70], [55, -60], [70, -120], [60, -165], [45, -125], [30, -115]],
+                // América del Sur
+                [[10, -75], [-5, -35], [-23, -42], [-55, -68], [-40, -73], [-15, -78], [0, -80]],
+                // Asia
+                [[25, 60], [38, 75], [55, 80], [70, 130], [60, 170], [35, 140], [20, 110], [10, 100]],
+                // Australia
+                [[-15, 130], [-25, 150], [-38, 145], [-35, 115], [-20, 118]]
+            ];
+
+            continentPolygons.forEach(poly => {
+                ctx.beginPath();
+                let hasDrawn = false;
+                poly.forEach((pt, i) => {
+                    const projected = project3D(pt[0], pt[1], cx, cy, radius);
+                    if (projected.visible) {
+                        if (!hasDrawn) {
+                            ctx.moveTo(projected.x, projected.y);
+                            hasDrawn = true;
+                        } else {
+                            ctx.lineTo(projected.x, projected.y);
+                        }
+                    }
+                });
+                if (hasDrawn) {
+                    ctx.closePath();
+                    ctx.fillStyle = isHighContrast ? 'rgba(74, 95, 125, 0.65)' : 'rgba(52, 90, 68, 0.45)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(200, 230, 255, 0.25)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // Renderizado del Mapa Plano 2D Equirrectangular
+        function draw2DPlanarMap(w, h) {
+            ctx.save();
+            ctx.translate(w / 2 + mapPanX, h / 2 + mapPanY);
+            ctx.scale(mapZoom, mapZoom);
+            ctx.translate(-w / 2, -h / 2);
+
+            // Océanos planos
+            const oceanGrad = ctx.createLinearGradient(0, 0, 0, h);
+            oceanGrad.addColorStop(0, '#040C17');
+            oceanGrad.addColorStop(0.5, '#081A2E');
+            oceanGrad.addColorStop(1, '#03080F');
+            ctx.fillStyle = oceanGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Cuadrícula plana 2D
+            const gridToggle = document.getElementById('gridToggle');
+            if (!gridToggle || gridToggle.checked) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += 80) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < h; y += 80) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+            }
+
+            // Masas continentales 2D planas
+            draw2DLandmasses(w, h);
+
+            ctx.restore();
+        }
+
+        function draw2DLandmasses(w, h) {
+            const worldContinents = [
+                // Europa y África
+                [[0.46, 0.22], [0.55, 0.24], [0.60, 0.38], [0.55, 0.65], [0.48, 0.75], [0.45, 0.60], [0.40, 0.45], [0.42, 0.30]],
+                // América del Norte
+                [[0.12, 0.18], [0.28, 0.16], [0.32, 0.32], [0.22, 0.44], [0.15, 0.40], [0.10, 0.28]],
+                // América del Sur
+                [[0.22, 0.48], [0.34, 0.52], [0.30, 0.78], [0.26, 0.88], [0.22, 0.68]],
+                // Asia
+                [[0.60, 0.18], [0.85, 0.20], [0.90, 0.38], [0.75, 0.52], [0.65, 0.42]],
+                // Australia
+                [[0.78, 0.65], [0.88, 0.68], [0.86, 0.82], [0.76, 0.80]]
+            ];
+
+            worldContinents.forEach(poly => {
+                ctx.beginPath();
+                poly.forEach((pt, i) => {
+                    const px = pt[0] * w;
+                    const py = pt[1] * h;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                });
+                ctx.closePath();
+                ctx.fillStyle = isHighContrast ? '#2D3B4F' : '#2A4333';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+            });
+        }
+
+        // =========================================================================
+        // RENDERIZADO Y SINCRONIZACIÓN DE PINES EN EL MAPA (HIG NATIVE)
+        // =========================================================================
+        function renderMapPins() {
+            pinsLayer.innerHTML = '';
+            const w = canvas.width;
+            const h = canvas.height;
+            const filtered = getFilteredAnalogs();
+
+            const radius = Math.min(w, h) * 0.38 * mapZoom;
+            const cx = w * 0.5 + mapPanX;
+            const cy = h * 0.52 + mapPanY;
+
+            filtered.forEach(item => {
+                let screenX = 0;
+                let screenY = 0;
+                let isVisible = true;
+                let pinScale = 1.0;
+
+                if (is3DMode) {
+                    const pt = project3D(item.lat, item.lon, cx, cy, radius);
+                    if (!pt.visible) {
+                        return; // Ocultar si está en el hemisferio posterior
+                    }
+                    screenX = pt.x;
+                    screenY = pt.y;
+                    pinScale = pt.scale;
+                } else {
+                    // Proyección equirrectangular 2D
+                    const normX = (item.lon + 180) / 360;
+                    const normY = (90 - item.lat) / 180;
+                    const rawX = normX * w;
+                    const rawY = normY * h;
+                    screenX = (rawX - w / 2) * mapZoom + w / 2 + mapPanX;
+                    screenY = (rawY - h / 2) * mapZoom + h / 2 + mapPanY;
+                }
+
+                const isSelected = item.id === selectedAnalogId;
+
+                // Color semántico según similitud
+                let colorBg = 'bg-appleGreen';
+                let shadowGlow = 'shadow-appleGreen/40';
+                if (item.similarity < 80 && item.similarity >= 60) {
+                    colorBg = 'bg-appleAmber';
+                    shadowGlow = 'shadow-appleAmber/40';
+                } else if (item.similarity < 60) {
+                    colorBg = 'bg-appleRed';
+                    shadowGlow = 'shadow-appleRed/40';
+                }
+
+                const pinBtn = document.createElement('button');
+                pinBtn.style.left = `${screenX}px`;
+                pinBtn.style.top = `${screenY}px`;
+                pinBtn.style.transform = `translate(-50%, -50%) scale(${pinScale})`;
+                pinBtn.setAttribute('aria-label', `Análogo #${item.id}: ${item.name}`);
+                pinBtn.className = `pointer-events-auto absolute touch-target flex items-center justify-center group focus:outline-none transition-transform duration-150`;
+
+                pinBtn.innerHTML = `
+                    ${isSelected ? `<span class="radar-ping absolute w-12 h-12 rounded-full bg-appleBlue/60 pointer-events-none"></span>` : ''}
+                    <span class="relative flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs text-white shadow-lg transition-transform duration-200 group-hover:scale-115 ${
+                        isSelected
+                            ? 'bg-appleBlue ring-4 ring-white shadow-appleBlue/50 scale-110 z-10'
+                            : `${colorBg} ring-2 ring-white/90 ${shadowGlow}`
+                    }">
+                        ${item.similarity}
+                    </span>
+                `;
+
+                pinBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    selectAnalog(item.id, true);
+                };
+
+                pinsLayer.appendChild(pinBtn);
+            });
+        }
+
+        // =========================================================================
+        // RENDERIZADO DE LA LISTA DE RESULTADOS (PANEL DERECHO HIG)
+        // =========================================================================
+        function renderResultsList() {
+            const listContainer = document.getElementById('resultsList');
+            const emptyState = document.getElementById('emptyState');
+            const subtitle = document.getElementById('resultsSubtitle');
+            const countBadge = document.getElementById('resultsCountBadge');
+            const filtered = getFilteredAnalogs();
+
+            subtitle.textContent = `${filtered.length} ${filtered.length === 1 ? 'región ordenada' : 'regiones ordenadas'} por similitud`;
+            countBadge.textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                listContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            listContainer.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            listContainer.innerHTML = '';
+
+            filtered.forEach(item => {
+                const isSelected = item.id === selectedAnalogId;
+
+                // Colores semánticos Apple HIG
+                let badgeClass = 'bg-appleGreen/15 text-appleGreen border-appleGreen/30';
+                let ringColor = '#30D158';
+
+                if (item.similarity < 80 && item.similarity >= 60) {
+                    badgeClass = 'bg-appleAmber/15 text-appleAmber border-appleAmber/30';
+                    ringColor = '#FF9F0A';
+                } else if (item.similarity < 60) {
+                    badgeClass = 'bg-appleRed/15 text-appleRed border-appleRed/30';
+                    ringColor = '#FF453A';
+                }
+
+                // Cálculo para el medidor circular concéntrico SVG
+                const radius = 15;
+                const circumference = 2 * Math.PI * radius;
+                const strokeOffset = circumference - (item.similarity / 100) * circumference;
+
+                const card = document.createElement('div');
+                card.id = `card-analog-${item.id}`;
+                card.onclick = () => selectAnalog(item.id, true);
+                card.className = `p-3.5 cursor-pointer apple-card ${isSelected ? 'apple-card-selected' : ''}`;
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-bold text-appleCyan">#${item.id}</span>
+                                <h3 class="text-[14px] font-semibold text-white truncate">${item.name}</h3>
+                            </div>
+                            <p class="text-xs text-white/55 mt-0.5">${item.country} • ${item.envLabel} • ${item.elevation} m</p>
+                        </div>
+
+                        <!-- Anillo de Actividad Concéntrico SVG Apple Style -->
+                        <div class="relative w-10 h-10 flex-shrink-0 flex items-center justify-center">
+                            <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="${radius}" stroke="rgba(255,255,255,0.12)" stroke-width="3" fill="none"/>
+                                <circle cx="18" cy="18" r="${radius}" stroke="${isSelected ? '#0A84FF' : ringColor}" stroke-width="3" stroke-linecap="round"
+                                    stroke-dasharray="${circumference}" stroke-dashoffset="${strokeOffset}" fill="none" style="transition: stroke-dashoffset 0.5s ease;"/>
+                            </svg>
+                            <span class="absolute text-[10px] font-bold text-white">${item.similarity}%</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[11px] text-white/50">Pend: <strong class="text-white/85 font-medium">${item.slope}°</strong></span>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeClass}">
+                                ${item.alertLabel}
+                            </span>
+                        </div>
+
+                        <!-- Botón Localizar con objetivo táctil >= 44pt -->
+                        <button onclick="event.stopPropagation(); locateAnalogOnMap(${item.id});" class="touch-target px-3 py-1.5 rounded-xl bg-white/10 hover:bg-appleBlue text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                            <span>Localizar</span>
+                        </button>
+                    </div>
+                `;
+
+                listContainer.appendChild(card);
+            });
+        }
+
+        // =========================================================================
+        // FILTRADO Y BÚSQUEDA
+        // =========================================================================
+        function getFilteredAnalogs() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const maxSlope = parseInt(document.getElementById('slopeSlider').value, 10);
+            const minCov = parseInt(document.getElementById('coverageSlider').value, 10);
+            const envType = document.getElementById('envSelect').value;
+
+            return globalAnalogs.filter(item => {
+                const matchesSearch = !search ||
+                    item.name.toLowerCase().includes(search) ||
+                    item.country.toLowerCase().includes(search) ||
+                    item.envLabel.toLowerCase().includes(search);
+                const matchesSlope = item.slope <= maxSlope;
+                const matchesCov = item.coverage >= minCov;
+                const matchesEnv = envType === 'all' || item.env === envType;
+                return matchesSearch && matchesSlope && matchesCov && matchesEnv;
+            });
+        }
+
+        function filterResults() {
+            const searchVal = document.getElementById('searchInput').value;
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (searchVal.length > 0) clearBtn.classList.remove('hidden');
+            else clearBtn.classList.add('hidden');
+
+            renderResultsList();
+            renderMapPins();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            filterResults();
+        }
+
+        function resetAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('slopeSlider').value = 35;
+            document.getElementById('coverageSlider').value = 50;
+            document.getElementById('envSelect').value = 'all';
+            updateSliderUI('slopeSlider', 'slopeValue', '°');
+            updateSliderUI('coverageSlider', 'coverageValue', '%');
+            filterResults();
+            showToast('Filtros restablecidos');
+        }
+
+        function updateSliderUI(sliderId, labelId, suffix) {
+            const slider = document.getElementById(sliderId);
+            const label = document.getElementById(labelId);
+            const val = slider.value;
+            const min = slider.min;
+            const max = slider.max;
+            const percentage = ((val - min) / (max - min)) * 100;
+
+            label.textContent = `${val}${suffix}`;
+            slider.style.background = `linear-gradient(to right, #0A84FF 0%, #0A84FF ${percentage}%, rgba(255, 255, 255, 0.16) ${percentage}%, rgba(255, 255, 255, 0.16) 100%)`;
+            filterResults();
+        }
+
+        function selectAnalog(id, showPopoverCard = false) {
+            selectedAnalogId = id;
+            renderResultsList();
+            renderMapPins();
+
+            const item = globalAnalogs.find(a => a.id === id);
+            if (!item) return;
+
+            // Actualizar datos del modal de simulación
+            document.getElementById('simModalTitle').textContent = `Simulación Geofísica • ${item.name}`;
+            document.getElementById('simModalSubtitle').textContent = `Cotejo Multivariado con Objetivo ${currentTarget.toUpperCase()}`;
+
+            if (showPopoverCard) {
+                const popover = document.getElementById('mapPopover');
+                document.getElementById('popoverRank').textContent = `ANÁLOGO #${item.id}`;
+                document.getElementById('popoverTitle').textContent = item.name;
+                document.getElementById('popoverMeta').textContent = `${item.country} • ${item.envLabel} • ${item.elevation} m`;
+                document.getElementById('popoverSim').textContent = `${item.similarity}%`;
+                document.getElementById('popoverSlope').textContent = `${item.slope}°`;
+                document.getElementById('popoverDesc').textContent = item.desc;
+
+                const w = canvas.width;
+                const h = canvas.height;
+                let screenX = 0;
+                let screenY = 0;
+
+                if (is3DMode) {
+                    const radius = Math.min(w, h) * 0.38 * mapZoom;
+                    const cx = w * 0.5 + mapPanX;
+                    const cy = h * 0.52 + mapPanY;
+                    const pt = project3D(item.lat, item.lon, cx, cy, radius);
+                    screenX = pt.visible ? pt.x : cx;
+                    screenY = pt.visible ? pt.y : cy;
+                } else {
+                    const normX = (item.lon + 180) / 360;
+                    const normY = (90 - item.lat) / 180;
+                    screenX = (normX * w - w / 2) * mapZoom + w / 2 + mapPanX;
+                    screenY = (normY * h - h / 2) * mapZoom + h / 2 + mapPanY;
+                }
+
+                const clampedX = Math.min(Math.max(screenX - 160, 20), w - 340);
+                const clampedY = Math.min(Math.max(screenY + 28, 140), h - 250);
+
+                popover.style.left = `${clampedX}px`;
+                popover.style.top = `${clampedY}px`;
+                popover.classList.remove('hidden');
+            }
+        }
+
+        function locateAnalogOnMap(id) {
+            const item = globalAnalogs.find(a => a.id === id);
+            if (!item) return;
+
+            if (is3DMode) {
+                // Rotar el globo terráqueo suavemente para centrar el análogo en vista frontal
+                globeRotationY = item.lon;
+                globeRotationX = item.lat;
+                mapZoom = 1.25;
+                drawMap();
+            } else {
+                const w = canvas.width;
+                const h = canvas.height;
+                mapZoom = 1.4;
+                const normX = (item.lon + 180) / 360;
+                const normY = (90 - item.lat) / 180;
+                mapPanX = (w / 2 - normX * w) * mapZoom;
+                mapPanY = (h / 2 - normY * h) * mapZoom;
+                drawMap();
+            }
+
+            document.getElementById('zoomBadge').textContent = `${Math.round(mapZoom * 100)}%`;
+            selectAnalog(id, true);
+            showToast(`Centrado en ${item.name}`);
+        }
+
+        function closePopover() {
+            document.getElementById('mapPopover').classList.add('hidden');
+        }
+
+        // =========================================================================
+        // SIMULACIÓN DE RECÁLCULO GAUSSIANO Y CAMBIO DE CUERPO CELESTE
+        // =========================================================================
+        function recalculateSimulation(showFeedback) {
+            const btn = document.getElementById('recalcBtn');
+            const text = document.getElementById('recalcText');
+            const list = document.getElementById('resultsList');
+            const useGravity = document.getElementById('gravityToggle').checked;
+
+            if (showFeedback) {
+                btn.disabled = true;
+                text.textContent = 'Calculando tensor geofísico...';
+                list.classList.add('opacity-50');
+            }
+
+            setTimeout(() => {
+                globalAnalogs.forEach(item => {
+                    // Simulación del decaimiento gaussiano s_i = exp(-0.5 * sum((delta/tau)^2))
+                    let factor = currentBody === 'moon' ? 0.95 : 1.05;
+                    let gravityBonus = useGravity ? (item.elevation > 1000 ? 2 : -1) : 0;
+                    item.similarity = Math.min(98, Math.max(22, Math.round(item.baseSimilarity * factor + gravityBonus)));
+                });
+
+                globalAnalogs.sort((a, b) => b.similarity - a.similarity);
+                renderResultsList();
+                renderMapPins();
+
+                if (showFeedback) {
+                    btn.disabled = false;
+                    text.textContent = 'Recalcular Similitud Física';
+                    list.classList.remove('opacity-50');
+                    showToast('Índices gaussianos actualizados para todos los sitios');
+                }
+            }, showFeedback ? 550 : 100);
+        }
+
+        function setCelestialBody(body) {
+            currentBody = body;
+            const btnMoon = document.getElementById('btnBodyMoon');
+            const btnMars = document.getElementById('btnBodyMars');
+            const targetSelect = document.getElementById('targetSelect');
+
+            if (body === 'moon') {
+                btnMoon.className = "touch-target min-h-[34px] px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-white/15 text-white shadow-sm transition";
+                btnMars.className = "touch-target min-h-[34px] px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 text-white/60 hover:text-white transition";
+                targetSelect.value = 'shackleton';
+                currentTarget = 'shackleton';
+                showToast('Objetivo cambiado a Luna (Artemis III)');
+            } else {
+                btnMars.className = "touch-target min-h-[34px] px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-white/15 text-white shadow-sm transition";
+                btnMoon.className = "touch-target min-h-[34px] px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 text-white/60 hover:text-white transition";
+                targetSelect.value = 'jezero';
+                currentTarget = 'jezero';
+                showToast('Objetivo cambiado a Marte (Cráter Jezero)');
+            }
+            recalculateSimulation(false);
+        }
+
+        function handleTargetChange() {
+            const val = document.getElementById('targetSelect').value;
+            currentTarget = val;
+            if (['jezero', 'gale', 'meridiani'].includes(val)) {
+                setCelestialBody('mars');
+            } else {
+                setCelestialBody('moon');
+            }
+        }
+
+        function applySpectralFilter(compound) {
+            showToast(`Filtrando análogos ricos en: ${compound}`);
+            document.getElementById('searchInput').value = compound.split(' ')[0];
+            setInspectorTab('filters');
+            filterResults();
+        }
+
+        // =========================================================================
+        // CONTROLES DE PANELES, PESTAÑAS Y CÁMARA
+        // =========================================================================
+        function toggleLeftSidebar() {
+            const panel = document.getElementById('leftSidebar');
+            const expandBtn = document.getElementById('expandLeftBtn');
+            const isHidden = panel.classList.contains('-translate-x-[120%]');
+
+            if (isHidden) {
+                panel.classList.remove('-translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                expandBtn.classList.add('hidden');
+            } else {
+                panel.classList.add('-translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                expandBtn.classList.remove('hidden');
+            }
+        }
+
+        function toggleRightSidebar() {
+            const panel = document.getElementById('rightSidebar');
+            const expandBtn = document.getElementById('expandRightBtn');
+            const isHidden = panel.classList.contains('translate-x-[120%]');
+
+            if (isHidden) {
+                panel.classList.remove('translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                expandBtn.classList.add('hidden');
+            } else {
+                panel.classList.add('translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                expandBtn.classList.remove('hidden');
+            }
+        }
+
+        function toggleMapFullscreen() {
+            const leftHidden = document.getElementById('leftSidebar').classList.contains('-translate-x-[120%]');
+            const rightHidden = document.getElementById('rightSidebar').classList.contains('translate-x-[120%]');
+
+            if (!leftHidden || !rightHidden) {
+                // Ocultar ambos
+                if (!leftHidden) toggleLeftSidebar();
+                if (!rightHidden) toggleRightSidebar();
+                showToast('Vista de mapa expandida');
+            } else {
+                // Mostrar ambos
+                toggleLeftSidebar();
+                toggleRightSidebar();
+            }
+        }
+
+        function setInspectorTab(tab) {
+            const tabs = ['filters', 'ai', 'layers'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                const view = document.getElementById(`view${t.charAt(0).toUpperCase() + t.slice(1)}`);
+                if (t === tab) {
+                    btn.className = "touch-target min-h-[34px] rounded-lg text-xs font-semibold bg-white/15 text-white shadow-sm transition";
+                    view.classList.remove('hidden');
+                } else {
+                    btn.className = "touch-target min-h-[34px] rounded-lg text-xs font-medium text-white/60 hover:text-white transition";
+                    view.classList.add('hidden');
+                }
+            });
+        }
+
+        function zoomMap(delta) {
+            mapZoom = Math.min(Math.max(mapZoom + delta, 0.65), 2.4);
+            document.getElementById('zoomBadge').textContent = `${Math.round(mapZoom * 100)}%`;
+            closePopover();
+            drawMap();
+            renderMapPins();
+        }
+
+        function resetCameraView() {
+            mapZoom = 1.0;
+            mapPanX = 0;
+            mapPanY = 0;
+            globeRotationX = 20;
+            globeRotationY = 0;
+            document.getElementById('zoomBadge').textContent = '100%';
+            closePopover();
+            drawMap();
+            renderMapPins();
+            showToast('Cámara restablecida');
+        }
+
+        function fitAllPins() {
+            mapZoom = 1.05;
+            mapPanX = 0;
+            mapPanY = 0;
+            document.getElementById('zoomBadge').textContent = '105%';
+            closePopover();
+            drawMap();
+            renderMapPins();
+            showToast('Encuadre global de los 20 análogos');
+        }
+
+        function setMapProjection(mode) {
+            is3DMode = mode === '3d';
+            const btn3D = document.getElementById('btnView3D');
+            const btn2D = document.getElementById('btnView2D');
+            if (is3DMode) {
+                btn3D.className = "touch-target min-h-[34px] px-3.5 rounded-full text-xs font-semibold bg-appleBlue text-white flex items-center gap-1.5 transition";
+                btn2D.className = "touch-target min-h-[34px] px-3.5 rounded-full text-xs font-medium text-white/70 hover:text-white flex items-center gap-1.5 transition";
+            } else {
+                btn2D.className = "touch-target min-h-[34px] px-3.5 rounded-full text-xs font-semibold bg-appleBlue text-white flex items-center gap-1.5 transition";
+                btn3D.className = "touch-target min-h-[34px] px-3.5 rounded-full text-xs font-medium text-white/70 hover:text-white flex items-center gap-1.5 transition";
+            }
+            drawMap();
+            renderMapPins();
+            showToast(`Proyección: ${is3DMode ? 'Esferoide 3D' : 'Mapa Plano 2D'}`);
+        }
+
+        function toggleTerrainMode() {
+            isHighContrast = !isHighContrast;
+            document.getElementById('mapStyleLabel').textContent = isHighContrast ? 'Relieve Topo' : 'Relieve Satelital';
+            drawMap();
+        }
+
+        // =========================================================================
+        // MANEJO DE INTERACCIÓN DE ARRASTRE Y ROTACIÓN 3D
+        // =========================================================================
+        const mapContainer = document.getElementById('mapContainer');
+
+        mapContainer.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#mapPopover')) return;
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            closePopover();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+
+            if (is3DMode) {
+                // Rotación de esfera continua en 3D
+                globeRotationY -= dx * 0.45;
+                globeRotationX = Math.min(Math.max(globeRotationX + dy * 0.35, -80), 80);
+            } else {
+                // Desplazamiento panorámico en 2D
+                mapPanX += dx;
+                mapPanY += dy;
+            }
+
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            drawMap();
+            renderMapPins();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Soporte táctil ergonómico para iPad y iPhone
+        mapContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1 && !e.target.closest('#mapPopover')) {
+                isDragging = true;
+                dragStartX = e.touches[0].clientX;
+                dragStartY = e.touches[0].clientY;
+                closePopover();
+            }
+        }, { passive: true });
+
+        mapContainer.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            const dx = e.touches[0].clientX - dragStartX;
+            const dy = e.touches[0].clientY - dragStartY;
+
+            if (is3DMode) {
+                globeRotationY -= dx * 0.45;
+                globeRotationX = Math.min(Math.max(globeRotationX + dy * 0.35, -80), 80);
+            } else {
+                mapPanX += dx;
+                mapPanY += dy;
+            }
+
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            drawMap();
+            renderMapPins();
+        }, { passive: true });
+
+        mapContainer.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // =========================================================================
+        // GESTIÓN DE MODALES: SIMULACIÓN, LISTA DE VERIFICACIÓN Y GUÍA
+        // =========================================================================
+        function openSimulationModal() {
+            document.getElementById('simulationModal').classList.remove('hidden');
+        }
+
+        function closeSimulationModal() {
+            document.getElementById('simulationModal').classList.add('hidden');
+        }
+
+        function openChecklistModal() {
+            renderChecklist();
+            document.getElementById('checklistModal').classList.remove('hidden');
+        }
+
+        function closeChecklistModal() {
+            document.getElementById('checklistModal').classList.add('hidden');
+        }
+
+        function openGuideModal() {
+            document.getElementById('guideModal').classList.remove('hidden');
+        }
+
+        function closeGuideModal() {
+            document.getElementById('guideModal').classList.add('hidden');
+        }
+
+        function renderChecklist() {
+            const container = document.getElementById('checklistItemsContainer');
+            const bar = document.getElementById('checklistProgressBar');
+            const text = document.getElementById('checklistProgressText');
+
+            container.innerHTML = '';
+            let completed = 0;
+
+            missionChecklist.forEach(item => {
+                if (item.done) completed++;
+
+                const row = document.createElement('label');
+                row.className = 'touch-target flex items-start gap-3 p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 cursor-pointer transition';
+
+                row.innerHTML = `
+                    <input type="checkbox" class="apple-checkbox mt-0.5" ${item.done ? 'checked' : ''} onchange="toggleChecklistItem(${item.id})">
+                    <div class="flex-1 text-xs">
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-appleCyan block mb-0.5">${item.category}</span>
+                        <span class="${item.done ? 'line-through text-white/50' : 'text-white font-medium'} leading-snug block">${item.text}</span>
+                    </div>
+                `;
+
+                container.appendChild(row);
+            });
+
+            const pct = Math.round((completed / missionChecklist.length) * 100);
+            bar.style.width = `${pct}%`;
+            text.textContent = `${completed} de ${missionChecklist.length} completadas (${pct}%)`;
+        }
+
+        function toggleChecklistItem(id) {
+            const item = missionChecklist.find(i => i.id === id);
+            if (item) {
+                item.done = !item.done;
+                localStorage.setItem('terraanalog_checklist', JSON.stringify(missionChecklist));
+                renderChecklist();
+            }
+        }
+
+        function resetChecklist() {
+            missionChecklist = JSON.parse(JSON.stringify(defaultChecklist));
+            localStorage.setItem('terraanalog_checklist', JSON.stringify(missionChecklist));
+            renderChecklist();
+            showToast('Lista de misión restablecida');
+        }
+
+        function exportGeoJSON() {
+            const filtered = getFilteredAnalogs();
+            const geojson = {
+                type: "FeatureCollection",
+                metadata: {
+                    generator: "TerraAnalog Apple HIG Engine v2.5",
+                    timestamp: new Date().toISOString(),
+                    standard: "ISO 19115 / OGC GeoJSON",
+                    target: currentTarget
+                },
+                features: filtered.map(a => ({
+                    type: "Feature",
+                    properties: {
+                        id: a.id,
+                        name: a.name,
+                        country: a.country,
+                        environment: a.envLabel,
+                        elevation_m: a.elevation,
+                        slope_deg: a.slope,
+                        similarity_gaussian_pct: a.similarity,
+                        ods_risk_level: a.alertLabel
+                    },
+                    geometry: {
+                        type: "Point",
+                        coordinates: [a.lon, a.lat, a.elevation]
+                    }
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `terraanalog_${currentTarget}_sitios.geojson`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('GeoJSON exportado con éxito');
+        }
+
+        let toastTimer;
+        function showToast(msg) {
+            const toast = document.getElementById('appleToast');
+            document.getElementById('appleToastMsg').textContent = msg;
+            toast.classList.remove('opacity-0', '-translate-y-4');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-4');
+            }, 2500);
+        }
+
+        // =========================================================================
+        // INICIALIZACIÓN AL CARGAR LA PÁGINA
+        // =========================================================================
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = function () {
+            // En pantallas móviles estrechas, colapsar paneles para dar prioridad al mapa (Deferencia)
+            if (window.innerWidth < 820) {
+                toggleLeftSidebar();
+                toggleRightSidebar();
+            }
+
+            updateSliderUI('slopeSlider', 'slopeValue', '°');
+            updateSliderUI('coverageSlider', 'coverageValue', '%');
+            resizeCanvas();
+            renderResultsList();
+            recalculateSimulation(false);
+        };
+    </script>
+</body>
+</html>

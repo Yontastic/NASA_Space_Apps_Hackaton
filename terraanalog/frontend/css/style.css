@@ -1,4 +1,4 @@
-/* TerraAnalog - Scientific Minimalist Dark Theme (Enhanced v2.0) */
+﻿/* TerraAnalog - Scientific Minimalist Dark Theme (Enhanced v2.0) */
 :root {
   --bg-dark: #080c14;
   --bg-panel: #0e1523;
@@ -305,6 +305,18 @@ header.topbar {
 }
 
 /* MAP VIEW & FLOATING CONTROLS */
+
+/* Dedicated Leaflet Map Canvas Container */
+#leaflet-map-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: #040810;
+}
+
 #map-viewport {
   flex: 1;
   background-color: #040810;
@@ -739,7 +751,7 @@ header.topbar {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 50;
+  z-index: 420;
   background-color: #030712;
   display: none;
 }
@@ -977,4 +989,351 @@ header.topbar {
 
 .doc-tab-pane.active {
   display: flex;
+}
+
+/* ==========================================================================
+   APPLE HIG (HUMAN INTERFACE GUIDELINES) DESIGN SYSTEM & UX ENHANCEMENTS
+   Cleanliness • Clarity • Deference to Content • macOS / iOS Aesthetics
+   ========================================================================== */
+
+/* 1. Modal Sheets & Glassmorphism */
+.modal-overlay {
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(4, 8, 16, 0.72);
+}
+
+.modal-content {
+  border-radius: 22px;
+  background: rgba(18, 26, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1) inset;
+  position: relative;
+  overflow: hidden;
+  animation: appleSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes appleSheetSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.apple-sheet-grabber {
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 auto 10px auto;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apple-sheet-grabber:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* 2. Persistent Preset Filter Bar (Capsule Style) */
+.map-category-bar {
+  background: rgba(15, 23, 42, 0.82) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+  padding: 5px 8px !important;
+  gap: 5px !important;
+}
+
+.cat-pill {
+  border-radius: 9999px !important;
+  font-size: 0.74rem !important;
+  font-weight: 500 !important;
+  padding: 4px 12px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cat-pill:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.cat-pill.active {
+  background: #007aff !important; /* Apple System Blue */
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 122, 255, 0.45) !important;
+  font-weight: 600 !important;
+}
+
+/* 3. Apple Activity / Match Ring Indicator */
+.apple-match-ring-wrapper {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.apple-match-ring {
+  transform: rotate(-90deg);
+  width: 44px;
+  height: 44px;
+}
+
+.apple-match-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 4;
+}
+
+.apple-match-ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease;
+}
+
+.apple-match-ring-text {
+  position: absolute;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-mono);
+  font-size: 0.70rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* 4. Apple Spotlight Search Box */
+.apple-spotlight-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+
+.apple-spotlight-box:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+.apple-spotlight-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 0.8rem;
+  width: 100%;
+  font-family: inherit;
+}
+
+.apple-spotlight-input::placeholder {
+  color: #64748b;
+}
+
+/* 5. Apple Contextual Info Button & Popover */
+.apple-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 11px;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.apple-info-btn:hover {
+  background: rgba(0, 122, 255, 0.25);
+  border-color: #007aff;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.apple-popover {
+  position: absolute;
+  z-index: 1000;
+  max-width: 310px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  animation: applePopoverFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes applePopoverFade {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.apple-popover h5 {
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.apple-popover-formula {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px;
+  margin: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #38bdf8;
+}
+
+/* 6. Apple Locate Button on Cards */
+.apple-locate-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-locate-btn:hover {
+  background: rgba(0, 122, 255, 0.3);
+  border-color: #007aff;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* 7. Apple Optimization / Workflow Checklist */
+.apple-checklist-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.apple-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-checklist-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.apple-checklist-item.completed {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.apple-checklist-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: all 0.2s;
+}
+
+.apple-checklist-item.completed .apple-checklist-checkbox {
+  background: #34c759; /* Apple System Green */
+  border-color: #34c759;
+  color: #ffffff;
+}
+
+.apple-checklist-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  transition: color 0.2s;
+}
+
+.apple-checklist-item.completed .apple-checklist-title {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.apple-checklist-desc {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.apple-progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 10px 0 16px 0;
+}
+
+.apple-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007aff, #34c759);
+  border-radius: 4px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Radar Pulse Animation on Map Pins when Located */
+@keyframes appleRadarPing {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.apple-ping-beacon {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #007aff;
+  animation: appleRadarPing 1.4s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
 }

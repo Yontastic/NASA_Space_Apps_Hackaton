@@ -128,10 +128,24 @@ class SimilarityEngine:
             
             if e_val is None or t_val is None:
                 missing_variables.append(feat["name"])
+                variable_breakdown.append({
+                    "feature_key": key,
+                    "name": feat["name"],
+                    "category": category,
+                    "unit": feat["unit"],
+                    "status": "MISSING_DATA",
+                    "earth_val": e_val,
+                    "target_val": t_val,
+                    "similarity": None,
+                    "quality": None,
+                    "weight": default_weight,
+                    "source_dataset": "N/A - Unobserved",
+                    "citation": "Dataset required"
+                })
                 continue
                 
             quality = min(max(float(e_meas.get("quality", 1.0)), 0.1), 1.0)
-            tau = float(feat.get("tolerance", 1.0))
+            tau = self.tolerances.get(key, float(feat.get("tolerance", 1.0)))
             
             s_i, delta, explanation = self.compute_variable_similarity(key, e_val, t_val, tau)
             

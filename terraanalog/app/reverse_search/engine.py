@@ -86,6 +86,7 @@ class ReverseSearchEngine:
             "iron_oxide_min": None,
             "thermal_inertia_min": None,
             "roughness_max": None,
+            "radiation_min": None,
             "radiation_max": None,
             "matched_keywords": []
         }
@@ -205,8 +206,8 @@ class ReverseSearchEngine:
                         score_acc += 20.0
                         reasons.append(f"Iron Oxide: {fe_val:.1f}% meets constraint (>= {iron_min}%)")
                     else:
-                        ratio = fe_val / iron_min
-                        score_acc += ratio * 20.0
+                        ratio = (fe_val / iron_min) if iron_min > 0 else 1.0
+                        score_acc += max(0.0, min(1.0, ratio)) * 20.0
                         reasons.append(f"Iron Oxide: {fe_val:.1f}% below preferred {iron_min}%")
                         
             # Roughness filter

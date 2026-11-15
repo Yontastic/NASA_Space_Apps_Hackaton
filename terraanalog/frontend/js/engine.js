@@ -300,7 +300,7 @@ const SCIENTIFIC_ENGINE = {
           score += 15;
           reasons.push(`Iron: ${fe}% satisfies >= ${criteria.ironMin}%`);
         } else {
-          score += (fe / criteria.ironMin) * 15;
+          score += criteria.ironMin > 0 ? (fe / criteria.ironMin) * 15 : 15;
           reasons.push(`Iron: ${fe}% is lower than ${criteria.ironMin}%`);
         }
       }
